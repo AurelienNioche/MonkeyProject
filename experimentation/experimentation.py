@@ -657,21 +657,24 @@ class StimuliParametersFinder(object):
 
         # ------------------------------- #
 
-        self.possible_p = [0.25, 0.5, 0.75]
-        self.possible_q = [1, 2, 3, 4]
-
-        self.find_stimuli = {"fixed_q": (self.find_stimuli_fixed_q, None)}
+        # # Uncomment for testing only probabilities
+        #
+        # self.possible_p = [0.25, 0.5, 0.75]
+        # self.possible_q = [1, 2, 3, 4]
+        #
+        # self.find_stimuli = {"fixed_q": (self.find_stimuli_fixed_q, None)}
 
         # ------------------------------------- #
-        # self.possible_p = [0.25, 0.5, 0.75, 1]
-        # self.possible_q = [1, 2, 3, 4]
-        # self.find_stimuli = {"fixed_p": (self.find_stimuli_fixed_p, None),
-        #                      "fixed_q": (self.find_stimuli_fixed_q, None),
-        #                      "congruent": (self.find_stimuli_congruent, None)
-        #                      }
-        #
-        # for i in [-1.25, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1.25]:
-        #     self.find_stimuli["incongruent_{}".format(i)] = (self.find_stimuli_incongruent, i)
+        self.possible_p = [0.25, 0.5, 0.75, 1]
+        self.possible_q = [1, 2, 3, 4]
+        self.find_stimuli = {"fixed_p": (self.find_stimuli_fixed_p, None),
+                             "fixed_q": (self.find_stimuli_fixed_q, None),
+                             "congruent": (self.find_stimuli_congruent, None)
+                             }
+
+        self.expected_values = [-1.25, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1.25]
+        for i in self.expected_values:
+            self.find_stimuli["incongruent_{}".format(i)] = (self.find_stimuli_incongruent, i)
 
         # ------------------------------- #
 
