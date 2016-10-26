@@ -26,7 +26,7 @@ class ParametersContainer(QWidget):
 
         self.parameters["reward_time"] = \
             Parameter(
-                text="Reward time (ms)", initial_value=2000,
+                text="Reward time (ms)", initial_value=1500,
                 value_range=[1000, 100000])
 
         self.parameters["valve_opening_time"] = \
@@ -40,9 +40,9 @@ class ParametersContainer(QWidget):
                 initial_value=250,
                 value_range=[1, 100000])
 
-        self.parameters["fixation_dot_time"] = \
+        self.parameters["fixation_time"] = \
             MinMaxParameter(
-                text="Fixation dot time (ms)", initial_value_min=500,
+                text="Fixation time (ms)", initial_value_min=500,
                 initial_value_max=750,
                 value_range_min=[1, 100000],
                 value_range_max=[1, 100000])
@@ -57,7 +57,7 @@ class ParametersContainer(QWidget):
                       value_range=[1, 100000])
 
         self.parameters["result_display_time"] = \
-            Parameter(text="Result display time (ms)", initial_value=2000,
+            Parameter(text="Result display time (ms)", initial_value=1500,
                       value_range=[1, 100000])
 
         self.parameters["inter_trial_time"] = \

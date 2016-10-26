@@ -1,18 +1,17 @@
 from PyQt5 import QtCore
-from multiprocessing import Queue
+from multiprocessing import Queue, Value
 import numpy as np
 from threading import Timer
-from multiprocessing import Value, Event
 from collections import OrderedDict
 from task.save import Database
 from datetime import date
 from task.ressources import GripManager, ValveManager, ConnectionToRaspi, GripTracker, SoundManager
+from task.stimuli_finder import StimuliFinder
 
 
 class Experimentalist(QtCore.QThread, QtCore.QObject):
 
     trigger = QtCore.pyqtSignal()
-    # trigger_with_args = QtCore.pyqtSignal(dict)
 
     def __init__(self, game_window, interface_window, graphic_queue):
 
@@ -24,11 +23,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
         self.graphic_queue = graphic_queue
 
         self.grip_queue = Queue()
-        self.grip_value = Value('i')
-
-        self.valve_queue = Queue()
-
-        self.shutdown = Event()
+        self.grip_value = Value('i', 0)
 
         self.grip_tracker = GripTracker(
             change_queue=self.grip_queue
@@ -39,11 +34,9 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
         self.connection_to_raspi = ConnectionToRaspi(raspi_address='169.254.162.142')
 
         self.grip_manager = GripManager(
-            grip_state=self.grip_value, grip_change=self.grip_queue)
+            grip_value=self.grip_value, grip_queue=self.grip_queue)
 
-        self.valve_manager = ValveManager(
-            valve_opening=self.valve_queue
-        )
+        self.valve_manager = ValveManager()
 
         # -------- SOUND --------- #
 
@@ -55,10 +48,15 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
         self.task_running = False
 
+        # ------- STIMULI FINDER ------- #
+
+        self.stimuli_finder = StimuliFinder()
+
         # ------- FOR FUTURE SAVING ---- #
         self.choice = None
 
         self.timer = None
+        self.animation_timers = []
 
         self.gauge_level = 0
 
@@ -158,6 +156,10 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
     def end_program(self):
 
+        self.timer.cancel()
+        for timer in self.animation_timers:
+            timer.cancel()
+
         self.grip_tracker.end()
         self.grip_manager.end()
         self.valve_manager.end()
@@ -205,6 +207,9 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
     def end_game(self):
 
         self.grip_tracker.cancel()
+        self.timer.cancel()
+        for timer in self.animation_timers:
+            timer.cancel()
 
         self.command(self.game_window.hide)
         self.game_window.current_step = "show_pause_screen"
@@ -238,7 +243,8 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
         inter_trial_time = np.random.randint(
             self.parameters["inter_trial_time"][0], self.parameters["inter_trial_time"][1]) / 1000
 
-        Timer(inter_trial_time+reward_time, self.begin_new_block).start()
+        self.timer = Timer(inter_trial_time+reward_time, self.begin_new_block)
+        self.timer.start()
 
 # ------------------------------------ START AND END TRIAL ---------------------------------------------------------- #
 
@@ -294,8 +300,11 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
             self.grip_tracker.launch(
                 handling_function=self.grasp_before_stimuli_display,
                 msg="Go signal from wait_for_grasping")
-        else:
+        elif self.grip_value.value == 1:
             self.grasp_before_stimuli_display()
+
+        else:
+            raise Exception("Something's wrong with the GripManager.")
 
     def grasp_before_stimuli_display(self):
 
@@ -306,7 +315,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
             msg="go signal from grasp before stimuli display")
 
         fixation_time = np.random.randint(
-            self.parameters["fixation_dot_time"][0], self.parameters["fixation_dot_time"][1]) / 1000
+            self.parameters["fixation_time"][0], self.parameters["fixation_time"][1]) / 1000
 
         self.timer = Timer(fixation_time, self.show_stimuli)
         self.timer.start()
@@ -328,7 +337,8 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
         self.game_window.current_step = "show_black_screen"
 
         punishment_time = self.parameters["punishment_time"] / 1000
-        Timer(punishment_time, self.end_trial).start()
+        self.timer = Timer(punishment_time, self.end_trial)
+        self.timer.start()
 
     def show_stimuli(self):
 
@@ -346,12 +356,18 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
         self.error = "too long to take a decision"
         self.punish()
 
-    def decide(self, choice):
+    def did_not_came_back_to_the_grip(self):
 
-        self.sound_manager.play("choice")
+        print("Experimentalist: did not came back to the grip.")
+        self.error = "did not came back to the grip"
+        self.punish()
+
+    def decide(self, choice):
 
         # Stop previous timer
         self.timer.cancel()
+
+        self.sound_manager.play("choice")
 
         self.choice = choice
 
@@ -361,7 +377,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
         # Launch new timer
         max_return_time = self.parameters["max_return_time"] / 1000
-        self.timer = Timer(max_return_time, self.punish)
+        self.timer = Timer(max_return_time, self.did_not_came_back_to_the_grip)
         self.timer.start()
 
         # Launch grip detector
@@ -380,7 +396,8 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
         self.game_window.set_choice(choice=self.choice)
 
         results_display_time = self.parameters["result_display_time"] / 1000
-        Timer(results_display_time, self.inter_trial).start()
+        self.timer = Timer(results_display_time, self.inter_trial)
+        self.timer.start()
 
         self.filling_gauge_animation()
 
@@ -392,7 +409,8 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
             self.parameters["inter_trial_time"][0],
             self.parameters["inter_trial_time"][1])\
             / 1000
-        Timer(inter_trial_time, self.end_trial).start()
+        self.timer = Timer(inter_trial_time, self.end_trial)
+        self.timer.start()
 
 # ----------------------------------------- GAUGE ANIMATION ------------------------------------------------------ #
 
@@ -416,11 +434,18 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
             sequence = []
             sound = None
 
-        for i in sequence:
+        self.animation_timers = []
 
-            Timer(time_per_unity*np.absolute(i), self.set_gauge_quantity,
-                  kwargs={"quantity": self.gauge_level + i,
-                          "sound": sound}).start()
+        for i in sequence:
+            timer = Timer(
+                time_per_unity*np.absolute(i), self.set_gauge_quantity,
+                kwargs={
+                    "quantity": self.gauge_level + i,
+                    "sound": sound
+                }
+            )
+            timer.start()
+            self.animation_timers.append(timer)
 
         self.gauge_level += reward
 
@@ -441,32 +466,38 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
         else:
             sequence = []
 
+        self.animation_timers = []
+
         for i in sequence:
 
-            Timer(time_per_unity*np.absolute(i), self.set_gauge_quantity,
-                  kwargs={"quantity": self.gauge_level - i,
-                          "sound": "reward"}).start()
+            timer = Timer(
+                time_per_unity*np.absolute(i), self.set_gauge_quantity,
+                kwargs=
+                {
+                    "quantity": self.gauge_level - i,
+                    "sound": "reward",
+                    "water": True
+                }
+            )
+            timer.start()
+            self.animation_timers.append(timer)
 
     def set_gauge_quantity(self, **kwargs):
 
         self.game_window.set_gauge_quantity(quantity=kwargs["quantity"])
         self.sound_manager.play(sound=kwargs["sound"])
+        if "water" in kwargs:
+            if not self.parameters["fake"]:
+                self.valve_manager.open(self.parameters["valve_opening_time"])
+            else:
+                print("FakeValveManager: GIVE WATER.")
 
 
 # ----------------------------------------- STIMULI & RESULTS ---------------------------------------------------- #
 
     def set_stimuli_parameters(self):
 
-        self.stimuli_parameters = {
-            "left_p": 0.25,
-            "left_x0": 3,
-            "left_x1": 0,
-            "left_beginning_angle": 5,
-            "right_p": 1,
-            "right_x0": 4,
-            "right_x1": 0,
-            "right_beginning_angle": 140
-        }
+        self.stimuli_parameters = self.stimuli_finder.find()
 
         self.game_window.set_parameters(self.stimuli_parameters)
 
@@ -487,6 +518,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
                 "error": self.error,
                 "choice": self.choice,
                 "dice_output": self.dice_output,
+                "gauge_level": self.gauge_level,
                 "n_trial_inside_block": self.n_trial_inside_block,
                 "n_block": self.n_block
             }

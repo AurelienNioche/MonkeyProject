@@ -7,6 +7,11 @@ from pexpect import pxssh
 import subprocess
 
 
+# --------------------------------------------------------------------------------------------------------------- #
+# ------------------------------------- CONNECTION TO RASPBERRY PI ---------------------------------------------- #
+# --------------------------------------------------------------------------------------------------------------- #
+
+
 class ConnectionToRaspi(object):
 
     def __init__(self, raspi_address='169.254.162.142'):
@@ -47,11 +52,19 @@ class ConnectionToRaspi(object):
         return self.connected
 
     def end(self):
+
         if self.connected:
             self.c.sendline("\x03")
             self.c.prompt(timeout=1)
+            print(self.c.before)
             self.connected = 0
+            self.c.logout()
             self.c.close()
+
+
+# --------------------------------------------------------------------------------------------------------------- #
+# ------------------------------------- ABSTRACT CLASS TO COMMUNICATE WITH THE  RASPBERRY PI -------------------- #
+# --------------------------------------------------------------------------------------------------------------- #
 
 
 class Client(object):
@@ -102,13 +115,18 @@ class Client(object):
         self.sock.close()
 
 
+# --------------------------------------------------------------------------------------------------------------- #
+# ------------------------------------- VALVE MANAGER ----------------------------------------------------------- #
+# --------------------------------------------------------------------------------------------------------------- #
+
+
 class ValveManager(QtCore.QThread):
 
-    def __init__(self, valve_opening, raspi_address='169.254.162.142'):
+    def __init__(self, raspi_address='169.254.162.142'):
 
         super(ValveManager, self).__init__()
 
-        self.valve_opening = valve_opening
+        self.valve_queue = Queue()
         self.raspi_address = raspi_address
 
         self.shutdown = Event()
@@ -123,7 +141,7 @@ class ValveManager(QtCore.QThread):
 
         while not self.shutdown.is_set():
 
-            v = self.valve_opening.get()
+            v = self.valve_queue.get()
             if not self.shutdown.is_set():
 
                 client.sock.send("1{}".format(v).encode())
@@ -134,20 +152,29 @@ class ValveManager(QtCore.QThread):
 
         print("ValveManager: DEAD.")
 
+    def open(self, time):
+
+        self.valve_queue.put(time)
+
     def end(self):
 
         self.shutdown.set()
-        self.valve_opening.put(None)
+        self.valve_queue.put(None)
+
+
+# --------------------------------------------------------------------------------------------------------------- #
+# ------------------------------------- GRIP MANAGER ------------------------------------------------------------ #
+# --------------------------------------------------------------------------------------------------------------- #
 
 
 class GripManager(QtCore.QThread):
 
-    def __init__(self, grip_state, grip_change, raspi_address='169.254.162.142'):
+    def __init__(self, grip_value, grip_queue, raspi_address='169.254.162.142'):
 
         super(GripManager, self).__init__()
 
-        self.grip_state = grip_state
-        self.grip_change = grip_change
+        self.grip_value = grip_value
+        self.grip_queue = grip_queue
         self.raspi_address = raspi_address
 
         self.shutdown = Event()
@@ -164,8 +191,9 @@ class GripManager(QtCore.QThread):
 
             response = client.sock.recv(255)
             if response:
-                self.grip_state.value = int(response)
-                self.grip_change.put(int(response))
+
+                self.grip_value.value = int(response)
+                self.grip_queue.put(int(response))
 
         client.close()
 
