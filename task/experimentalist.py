@@ -278,7 +278,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
                 self.begin_new_trial()
             else:
                 self.end_block()
-                
+
         # Otherwise, begin a new block
         else:
             self.begin_new_block()
