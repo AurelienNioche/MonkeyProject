@@ -1,1 +1,0 @@
-from ressources import *

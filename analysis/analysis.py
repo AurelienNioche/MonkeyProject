@@ -79,6 +79,18 @@ class Analyst(object):
             self.import_data(session_table=session_table)
             self.analyse_session(date)
 
+    def analyse_single_session(self, monkey, date):
+
+        self.monkey = monkey
+
+        session_table = \
+            self.db.read_column(table_name="summary", column_name='session_table_ID', monkey=self.monkey, date=date)
+
+        self.import_data(session_table=session_table)
+        self.analyse_session(date)
+
+        return self.incongruent_trials_expect
+
     def analyse_session(self, date):
 
         print("*****")
@@ -326,8 +338,8 @@ class Analyst(object):
 
 def compute():
 
-    analyst = Analyst(database_name="results")
-    for monkey in ["Havane", "Gladys"]:  #, "Gladys":
+    analyst = Analyst(database_name="../Results/results")
+    for monkey in ["Havane", "Gladys"]:
         analyst.analyse(monkey)
 
 

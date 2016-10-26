@@ -7,7 +7,7 @@ import numpy as np
 
 class Database(object):
 
-    def __init__(self, database_name="results"):
+    def __init__(self, database_name="results_trial"):
 
         # Backup is a database format, using Sqlite3 management system
         self.folder_path = "{}/../results".format(path.dirname(path.dirname(path.realpath(__file__))))
@@ -27,7 +27,7 @@ class Database(object):
         else:
             mkdir(self.folder_path)
 
-    def is_table_existing(self, table_name):
+    def table_exists(self, table_name):
 
         r = 0
 
@@ -90,7 +90,12 @@ class Database(object):
     def read(self, query):
 
         self.open()
-        self.cursor.execute(query)
+
+        try:
+            self.cursor.execute(query)
+        except OperationalError as e:
+            print("Error with query", query)
+            raise e
 
         content = self.cursor.fetchall()
 
@@ -135,16 +140,19 @@ class Database(object):
 
             conditions = ""
             for i, j in kwargs.items():
-                conditions += "{}='{}', ".format(i, j)
-            conditions = conditions[:-2]
+                conditions += "{}='{}' AND ".format(i, j)
+            conditions = conditions[:-5]
 
             query = "SELECT {} from {} WHERE {}".format(column_name, table_name, conditions)
         
         a = self.read(query)
+        # print("result query", a)
         if a:
             a = [i[0] for i in a]
+            if len(a) == 1:
+                a = a[0]
 
-            return a
+        return a
 
 
 class BackUp(object):
@@ -212,22 +220,25 @@ class BackUp(object):
 
     def save(self, parameters, data):
 
-        self.create_summary_table(parameters)
+        if data:
+            self.create_summary_table(parameters)
 
-        table_ids = self.db.read_column("summary", "session_table_ID")
-        if table_ids:
-            table_ids = [int(i.split("session")[1]) for i in table_ids]
-            self.session_table = "session{}".format(np.max(table_ids)+1)
+            table_ids = self.db.read_column("summary", "session_table_ID")
+            if table_ids:
+                table_ids = [int(i.split("session")[1]) for i in table_ids]
+                self.session_table = "session{}".format(np.max(table_ids)+1)
 
+            else:
+                self.session_table = "session1"
+
+            self.fill_summary_table(session_table=self.session_table, parameters=parameters)
+            self.create_session_table(data)
+
+            self.fill_session_table(data)
+
+            print("BackUp: Data saved.")
         else:
-            self.session_table = "session1"
-
-        self.fill_summary_table(session_table=self.session_table, parameters=parameters)
-        self.create_session_table(data)
-
-        self.fill_session_table(data)
-
-        print("BackUp: Data saved.")
+            print("BackUp: No data to save.")
 
 
 if __name__ == '__main__':
