@@ -181,7 +181,7 @@ class GripManager(QtCore.QThread):
 
     def run(self):
 
-        client = Client(function="listener")
+        client = Client(function="listener", raspi_address=self.raspi_address)
 
         client.establish_connection()
 

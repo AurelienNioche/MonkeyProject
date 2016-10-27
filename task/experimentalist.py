@@ -207,7 +207,8 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
     def end_game(self):
 
         self.grip_tracker.cancel()
-        self.timer.cancel()
+        if self.timer:
+            self.timer.cancel()
         for timer in self.animation_timers:
             timer.cancel()
 
