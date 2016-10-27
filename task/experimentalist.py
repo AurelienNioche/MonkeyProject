@@ -155,8 +155,8 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 # --------------------------------------- END PROGRAM ------------------------------------------------------------ #
 
     def end_program(self):
-
-        self.timer.cancel()
+        if self.timer:
+            self.timer.cancel()
         for timer in self.animation_timers:
             timer.cancel()
 
