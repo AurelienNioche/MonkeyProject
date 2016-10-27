@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import QWidget, QApplication, QGraphicsEllipseItem, \
-    QStyleOptionGraphicsItem, QGridLayout
+    QStyleOptionGraphicsItem, QGridLayout, QMainWindow
 from PyQt5.QtGui import QPalette, QColor, QPainter, QBrush, QPen, QPixmap, QImage
 from PyQt5.QtCore import QRectF, Qt, QPoint, QTimer
 from collections import OrderedDict
@@ -316,7 +316,7 @@ class PieChart(Frame):
 # ----------------------------------------------------------------------------------------------------------- #
 
 
-class GameWindow(QWidget):
+class GameWindow(QMainWindow):
 
     def __init__(self, queue, standalone=False):
 
@@ -327,6 +327,7 @@ class GameWindow(QWidget):
         self.fake_grip_value = None
         self.fake_grip_queue = None
 
+        self.main_widget = QWidget()
         self.frames = OrderedDict()
         self.grid = QGridLayout()
 
@@ -354,8 +355,6 @@ class GameWindow(QWidget):
         self.dice_output = 0
 
         self.timer = QTimer()
-        self.timer.setInterval(50)
-        self.timer.timeout.connect(self.update_display)
 
         self.initialize()
 
@@ -365,6 +364,8 @@ class GameWindow(QWidget):
 
         width = 900
         height = 0.625 * width
+
+        self.setCentralWidget(self.main_widget)
 
         self.setGeometry(100, 100, width, height)
 
@@ -383,22 +384,30 @@ class GameWindow(QWidget):
         self.grid.addWidget(self.frames["black_screen"], 0, 0, 1, 7)
         self.grid.addWidget(self.frames["pause"], 0, 0, 1, 7)
 
-        self.setLayout(self.grid)
+        self.main_widget.setLayout(self.grid)
 
         self.hide_black_screen()
         self.hide_pause_screen()
         self.hide_stimuli()
 
+        self.timer.setInterval(50)
+        self.timer.timeout.connect(self.update_display)
         self.timer.start()
 
 # --------------------------------------------------------- DISPLAY ------------------------------------------------ #
 
     def update_display(self):
 
-        if self.current_step != self.previous_step:
+        if self.current_step == "hide":
+            if self.isFullScreen():
+                self.showMinimized()
+            elif self.isVisible():
+
+                self.hide()
+
+        elif self.current_step != self.previous_step:
 
             print("GameWindow: ", self.current_step)
-
             if self.current_step == "show_stimuli":
 
                 self.hide_black_screen()
@@ -435,6 +444,9 @@ class GameWindow(QWidget):
                 self.hide_black_screen()
                 self.hide_stimuli()
                 self.show_gauge()
+
+            elif self.current_step == "hide":
+                pass
 
             else:
 

@@ -184,6 +184,7 @@ class Interface(QWidget):
         self.push_button_run.clicked.disconnect()
         self.push_button_run.clicked.connect(self.run)
         self.push_button_run.setEnabled(True)
+        self.push_button_run.setFocus()
 
         self.parameters_container.show()
 

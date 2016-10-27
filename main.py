@@ -26,5 +26,4 @@ if __name__ == "__main__":
     )
 
     experimentalist.start()
-
     sys.exit(app.exec_())

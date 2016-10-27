@@ -62,8 +62,8 @@ class ParametersContainer(QWidget):
 
         self.parameters["inter_trial_time"] = \
             MinMaxParameter(
-                text="Inter-trial time (ms)", initial_value_min=500,
-                initial_value_max=750,
+                text="Inter-trial time (ms)", initial_value_min=100,
+                initial_value_max=300,
                 value_range_min=[1, 100000],
                 value_range_max=[1, 100000])
 
@@ -75,7 +75,7 @@ class ParametersContainer(QWidget):
             RadioParameter(text="Monkey", text_radio1="Havane", text_radio2="Gladys")
 
         self.parameters["save"] = \
-            CheckParameter(text="Save results")
+            CheckParameter(text="Save results", checked=False)
 
         self.parameters["fake"] = \
             CheckParameter(text="Use fake grip and reward system", checked=True)

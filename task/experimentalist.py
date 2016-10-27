@@ -1,5 +1,5 @@
 from PyQt5 import QtCore
-from multiprocessing import Queue, Value
+from multiprocessing import Queue, Value, Event
 import numpy as np
 from threading import Timer
 from collections import OrderedDict
@@ -7,6 +7,7 @@ from task.save import Database
 from datetime import date
 from task.ressources import GripManager, ValveManager, ConnectionToRaspi, GripTracker, SoundManager
 from task.stimuli_finder import StimuliFinder
+from time import time
 
 
 class Experimentalist(QtCore.QThread, QtCore.QObject):
@@ -55,9 +56,6 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
         # ------- FOR FUTURE SAVING ---- #
         self.choice = None
 
-        self.timer = None
-        self.animation_timers = []
-
         self.gauge_level = 0
 
         self.stimuli_parameters = {}
@@ -65,6 +63,16 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
         self.error = None
 
         self.dice_output = 0
+
+        # -------- TIME & TIMERS ----------- #
+
+        self.timer = None
+        self.animation_timers = []
+
+        self.time_to_decide = -1
+        self.time_to_come_back_to_the_grip = -1
+        self.inter_trial_time = -1
+        self.fixation_time = -1
 
         # ------- TRIAL COUNTERS ------ #
 
@@ -155,6 +163,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 # --------------------------------------- END PROGRAM ------------------------------------------------------------ #
 
     def end_program(self):
+
         if self.timer:
             self.timer.cancel()
         for timer in self.animation_timers:
@@ -190,6 +199,14 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
         self.game_window.current_step = "show_pause_screen"
         self.command(self.game_window.show)
 
+        # Update display on graphic interface
+        self.trial_counter = [0, 0]
+        self.interface_window.trial_counter.set_trial_number(self.trial_counter)
+
+        # Reinitialize
+        self.to_save = []
+        self.n_block = 0
+
         # Show 'trial counter' on interface window
         self.command(self.interface_window.show_trial_counter)
 
@@ -197,25 +214,32 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
         print('Experimentalist: PLAY GAME.')
 
+        # Play appropriate sound
         self.sound_manager.play("start")
-        self.to_save = []
 
-        self.n_block = 0
-
+        # Begin a new block of trials
         self.begin_new_block()
 
     def end_game(self):
 
+        print('Experimentalist: END GAME.')
+
+        # Stop the grip tracker
         self.grip_tracker.cancel()
+
+        # Stop all the timers
         if self.timer:
             self.timer.cancel()
         for timer in self.animation_timers:
             timer.cancel()
 
-        self.command(self.game_window.hide)
-        self.game_window.current_step = "show_pause_screen"
+        # Update display on game window
+        self.game_window.current_step = "hide"
+
+        # Update display interface window
         self.command(self.interface_window.prepare_next_run)
 
+        # Save the session (database)
         if self.parameters["save"]:
 
             self.save_session()
@@ -226,42 +250,59 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
         print("Experimentalist: Start new block.")
 
-        self.game_window.set_gauge_color(color="black")
-
+        # Reinitialize
         self.n_trial_inside_block = 0
-
         self.gauge_level = self.parameters["initial_stock"]
+
+        # Update display of game window
+        self.game_window.set_gauge_color(color="black")
         self.game_window.set_gauge_quantity(quantity=self.gauge_level)
+
+        # Launch new trial
         self.begin_new_trial()
 
     def end_block(self):
 
+        print("Experimentalist: End of a block.")
+
+        # Upgrade counter
         self.n_block += 1
 
-        self.venting_gauge_animation()
-
+        # After time for rewarding, launch new block
         reward_time = self.parameters["reward_time"] / 1000
-        inter_trial_time = np.random.randint(
-            self.parameters["inter_trial_time"][0], self.parameters["inter_trial_time"][1]) / 1000
-
-        self.timer = Timer(inter_trial_time+reward_time, self.begin_new_block)
+        self.timer = Timer(reward_time, self.begin_new_block)
         self.timer.start()
+
+        # Launch vending animation
+        self.venting_gauge_animation()
 
 # ------------------------------------ START AND END TRIAL ---------------------------------------------------------- #
 
     def begin_new_trial(self):
 
+        print("Experimentalist: New trial.")
+
+        # Reinitialize
+        self.error = None
+        self.time_to_decide = -1
+        self.time_to_come_back_to_the_grip = -1
+        self.inter_trial_time = -1
+        self.fixation_time = -1
+
+        # Update display on game window
         self.game_window.current_step = "show_gauge"
 
-        self.error = None
-
+        # Prepare stimuli for future use
         self.set_stimuli_parameters()
+
+        # Launch next step: wait for the user to grasp the grip
         self.wait_for_grasping()
 
     def end_trial(self):
 
         print("Experimentalist: End of trial.")
 
+        # Save trial (on RAM)
         if self.parameters["save"] == 1:
             self.save_trial()
 
@@ -269,11 +310,8 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
         self.trial_counter[0] += 1
         if self.error is None:
 
-            self.trial_counter[1] += 1
-            self.n_trial_inside_block += 1
-
-        else:
-            self.n_trial_inside_block = 0
+            self.trial_counter[1] += 1  # One trial more without errors
+            self.n_trial_inside_block += 1  # Increment the number of made trials inside the same block
 
         # Update display on graphic interface
         self.interface_window.trial_counter.set_trial_number(self.trial_counter)
@@ -294,124 +332,165 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
     def wait_for_grasping(self):
 
-        if self.grip_value.value == 0:
+        # If user holds already the grip, go directly to next step
+        if self.grip_value.value == 1:
 
-            print("Experimentalist: WAIT FOR GRASPING.")
+            self.grasp_before_stimuli_display()
+
+        # Otherwise wait for him to do it
+        elif self.grip_value.value == 0:
+
+            print("Experimentalist: wait for grasping.")
 
             self.grip_tracker.launch(
                 handling_function=self.grasp_before_stimuli_display,
                 msg="Go signal from wait_for_grasping")
-        elif self.grip_value.value == 1:
-            self.grasp_before_stimuli_display()
 
         else:
             raise Exception("Something's wrong with the GripManager.")
 
     def grasp_before_stimuli_display(self):
 
-        print("Experimentalist: GRASP BEFORE STIMULI DISPLAY.")
+        print("Experimentalist: grasp before stimuli display.")
 
+        # Observe if the user holds the grip for a certain time, otherwise do what is appropriate
         self.grip_tracker.launch(
             handling_function=self.release_before_end_of_fixation_time,
             msg="go signal from grasp before stimuli display")
 
-        fixation_time = np.random.randint(
+        # Launch a new timer: if user holds the grip, show the stimuli
+        self.fixation_time = np.random.randint(
             self.parameters["fixation_time"][0], self.parameters["fixation_time"][1]) / 1000
-
-        self.timer = Timer(fixation_time, self.show_stimuli)
+        self.timer = Timer(self.fixation_time, self.show_stimuli)
         self.timer.start()
 
-    def release_before_end_of_fixation_time(self):
+    def show_stimuli(self):
 
-        print("Experimentalist: release.")
+        print("Experimentalist: Show stimuli.")
+
+        # Stop grip tracker whose purpose was to rise an error if user has release the grip
+        self.grip_tracker.cancel()
+
+        # Update display on game window
+        self.game_window.current_step = "show_stimuli"
+
+        # Launch new timer: after maximum time to decide, if no action took place, do what is appropriated.
+        max_decision_time = self.parameters["max_decision_time"] / 1000
+        self.timer = Timer(max_decision_time, self.did_not_take_decision)
+        self.timer.start()
+
+        # For future measure of time for choosing
+        self.time_to_decide = time()
+
+    def decide(self, choice):
+
+        print("Experimentalist: Decide.")
+
+        # Stop previous timer
         self.timer.cancel()
 
-        self.error = "release before end of fixation time"
-        self.punish()
+        # Measure time to decide
+        self.time_to_decide = int((time() - self.time_to_decide) * 1000)
+
+        # Play appropriated sound
+        self.sound_manager.play("choice")
+
+        # Save choice
+        self.choice = choice
+
+        # Update display on game window
+        self.game_window.set_choice(choice=self.choice)
+        self.game_window.current_step = "show_choice"
+
+        # Launch new timer: limit for coming back to the grip
+        max_return_time = self.parameters["max_return_time"] / 1000
+        self.timer = Timer(max_return_time, self.did_not_came_back_to_the_grip)
+        self.timer.start()
+
+        # Launch grip detector: If grip state change, results will be displayed
+        self.grip_tracker.launch(handling_function=self.show_results, msg="Add results if grip touched")
+
+        # For future measure of time for coming back to the grip
+        self.time_to_come_back_to_the_grip = time()
+
+    def show_results(self):
+
+        print("Experimentalist: Show results.")
+
+        # Stop previous timer
+        self.timer.cancel()
+
+        # Measure time for coming back to the grip
+        self.time_to_come_back_to_the_grip = int((time() - self.time_to_come_back_to_the_grip) * 1000)
+
+        # Prepare results
+        self.set_results()
+
+        # Update display on game window
+        self.game_window.current_step = "show_results"
+        self.game_window.set_choice(choice=self.choice)
+
+        # Launch new timer: after time for displaying results, launch inter-trial
+        results_display_time = self.parameters["result_display_time"] / 1000
+        self.timer = Timer(results_display_time, self.inter_trial)
+        self.timer.start()
+
+        # Start animation for filling up the gauge
+        self.filling_gauge_animation()
+
+    def inter_trial(self):
+
+        print("Experimentalist: Inter-trial.")
+
+        # Update display on game window
+        self.game_window.current_step = "show_gauge"
+
+        # Launch new timer: after time for inter-trial, go to end of the trial
+        self.inter_trial_time = np.random.randint(
+            self.parameters["inter_trial_time"][0],
+            self.parameters["inter_trial_time"][1])\
+            / 1000
+        self.timer = Timer(self.inter_trial_time, self.end_trial)
+        self.timer.start()
+
+# ----------------------------------------- ERRORS --------------------------------------------------------------- #
 
     def punish(self):
 
         print("Experimentalist: PUNISH.")
 
+        # Play appropriated sound
         self.sound_manager.play("punishment")
 
+        # Update display on game window
         self.game_window.current_step = "show_black_screen"
 
+        # After punishment time, go to end of trial
         punishment_time = self.parameters["punishment_time"] / 1000
         self.timer = Timer(punishment_time, self.end_trial)
         self.timer.start()
 
-    def show_stimuli(self):
+    def release_before_end_of_fixation_time(self):
 
-        # Stop grip tracker
-        self.grip_tracker.cancel()
-        self.game_window.current_step = "show_stimuli"
+        print("Experimentalist: Release grip before the end of the fixation time.")
+        self.timer.cancel()
 
-        max_decision_time = self.parameters["max_decision_time"] / 1000
-        self.timer = Timer(max_decision_time, self.did_not_take_decision)
-        self.timer.start()
+        self.error = "release before end of fixation time"
+        self.punish()
 
     def did_not_take_decision(self):
 
-        print("Experimentalist: did not take a decision.")
+        print("Experimentalist: Did not take a decision.")
         self.error = "too long to take a decision"
+        self.time_to_decide = -1
         self.punish()
 
     def did_not_came_back_to_the_grip(self):
 
-        print("Experimentalist: did not came back to the grip.")
+        print("Experimentalist: Did not came back to the grip.")
+        self.time_to_come_back_to_the_grip = -1
         self.error = "did not came back to the grip"
         self.punish()
-
-    def decide(self, choice):
-
-        # Stop previous timer
-        self.timer.cancel()
-
-        self.sound_manager.play("choice")
-
-        self.choice = choice
-
-        self.game_window.set_choice(choice=choice)
-
-        self.game_window.current_step = "show_choice"
-
-        # Launch new timer
-        max_return_time = self.parameters["max_return_time"] / 1000
-        self.timer = Timer(max_return_time, self.did_not_came_back_to_the_grip)
-        self.timer.start()
-
-        # Launch grip detector
-        self.grip_tracker.launch(handling_function=self.show_results, msg="Add results if grip touched")
-
-    def show_results(self):
-
-        # Stop previous timer
-        self.timer.cancel()
-
-        # Prepare results
-        self.set_results()
-
-        self.game_window.current_step = "show_results"
-
-        self.game_window.set_choice(choice=self.choice)
-
-        results_display_time = self.parameters["result_display_time"] / 1000
-        self.timer = Timer(results_display_time, self.inter_trial)
-        self.timer.start()
-
-        self.filling_gauge_animation()
-
-    def inter_trial(self):
-
-        self.game_window.current_step = "show_gauge"
-
-        inter_trial_time = np.random.randint(
-            self.parameters["inter_trial_time"][0],
-            self.parameters["inter_trial_time"][1])\
-            / 1000
-        self.timer = Timer(inter_trial_time, self.end_trial)
-        self.timer.start()
 
 # ----------------------------------------- GAUGE ANIMATION ------------------------------------------------------ #
 
@@ -421,7 +500,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
         reward = self.stimuli_parameters["{}_x{}".format(self.choice, self.dice_output)]
 
-        time_per_unity = results_display_time / (reward + 1)
+        time_per_unity = results_display_time / 4
 
         if reward > 0:
             sound = "reward"
@@ -429,7 +508,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
         elif reward < 0:
             sound = "loss"
-            sequence = np.arange(1, reward + 1)
+            sequence = np.arange(-1, reward - 1, -1)
 
         else:
             sequence = []
@@ -439,7 +518,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
         for i in sequence:
             timer = Timer(
-                time_per_unity*np.absolute(i), self.set_gauge_quantity,
+                time_per_unity * (np.absolute(i) - 1), self.set_gauge_quantity,
                 kwargs={
                     "quantity": self.gauge_level + i,
                     "sound": sound
@@ -458,7 +537,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
         reward = self.gauge_level
 
-        time_per_unity = reward_time / (reward + 1)
+        time_per_unity = reward_time / 4
 
         if reward > 0:
 
@@ -521,7 +600,11 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
                 "dice_output": self.dice_output,
                 "gauge_level": self.gauge_level,
                 "n_trial_inside_block": self.n_trial_inside_block,
-                "n_block": self.n_block
+                "n_block": self.n_block,
+                "time_to_decide": self.time_to_decide,
+                "time_to_come_back_to_the_grip": self.time_to_come_back_to_the_grip,
+                "inter_trial_time": int(self.inter_trial_time * 1000),
+                "fixation_time": int(self.fixation_time * 1000)
             }
         to_save.update(self.stimuli_parameters)
         self.to_save.append(to_save)
