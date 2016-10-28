@@ -75,10 +75,10 @@ class ParametersContainer(QWidget):
             RadioParameter(text="Monkey", text_radio1="Havane", text_radio2="Gladys")
 
         self.parameters["save"] = \
-            CheckParameter(text="Save results", checked=True)
+            CheckParameter(text="Save results", checked=False)
 
         self.parameters["fake"] = \
-            CheckParameter(text="Use fake grip and reward system", checked=False)
+            CheckParameter(text="Use fake grip and reward system", checked=True)
 
         for i, p in enumerate(self.parameters.keys()):
 

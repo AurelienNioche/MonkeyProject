@@ -303,10 +303,6 @@ class GripTracker(QtCore.QThread):
 
                 print("Grip tracker message:", msg)
 
-                print(str(self.handling_function))
-
-                print("GripTracker: GO.")
-
                 args = self.change_queue.get()
 
                 if not self.cancel_signal:

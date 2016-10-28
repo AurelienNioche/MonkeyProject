@@ -22,6 +22,27 @@ class Colors:
     red = QColor(255, 0, 0)
 
 # ----------------------------------------------------------------------------------------------------------- #
+# ------------------------------------------------ FRAME ---------------------------------------------------- #
+# ----------------------------------------------------------------------------------------------------------- #
+
+
+class Frame(QWidget):
+
+    def __init__(self, background_color):
+
+        super().__init__()
+
+        self.background_color = background_color
+        self.create_background()
+
+    def create_background(self):
+
+        pal = QPalette()
+        pal.setColor(QPalette.Background, getattr(Colors, self.background_color))
+        self.setAutoFillBackground(True)
+        self.setPalette(pal)
+
+# ----------------------------------------------------------------------------------------------------------- #
 # ------------------------------------------------ GAUGE ---------------------------------------------------- #
 # ----------------------------------------------------------------------------------------------------------- #
 
@@ -30,6 +51,16 @@ class Pause(QWidget):
 
     def __init__(self):
         super().__init__()
+
+        self.background_color = "white"
+        self.create_background()
+
+    def create_background(self):
+
+        pal = QPalette()
+        pal.setColor(QPalette.Background, getattr(Colors, self.background_color))
+        self.setAutoFillBackground(True)
+        self.setPalette(pal)
 
     def paintEvent(self, e):
 
@@ -48,9 +79,9 @@ class Pause(QWidget):
 
         # --------------- #
 
-        pen.setColor(QColor(255, 255, 255))
+        pen.setColor(getattr(Colors, "white"))
         painter.setPen(pen)
-        brush.setColor((QColor(255, 255, 255)))
+        brush.setColor(getattr(Colors, "white"))
         brush.setStyle(Qt.SolidPattern)
         painter.setBrush(brush)
 
@@ -109,8 +140,19 @@ class Gauge(QWidget):
 
         super().__init__()
 
+        self.background_color = "white"
+
         self.color = color
         self.token_number = 0
+
+        self.create_background()
+
+    def create_background(self):
+
+        pal = QPalette()
+        pal.setColor(QPalette.Background, getattr(Colors, self.background_color))
+        self.setAutoFillBackground(True)
+        self.setPalette(pal)
 
     def paintEvent(self, event):
 
@@ -137,14 +179,9 @@ class Gauge(QWidget):
 
     def draw_gauge(self, line_width, gauge_width, gauge_height, painter, pen):
 
-        pen.setColor(QColor(0, 0, 0))  # Black
+        pen.setColor(getattr(Colors, self.color))
         pen.setWidth(line_width)
         painter.setPen(pen)
-
-        # brush.setColor()
-        #
-        # self.painter.setBrush(self.brush["transparent"])
-        # self.painter.setPen(self.pen[self.color])
 
         # ------------ #
 
@@ -164,7 +201,7 @@ class Gauge(QWidget):
         pen.setWidth(1.1*line_width)
         painter.setPen(pen)
 
-        self.painter.drawLine(
+        painter.drawLine(
                 self.width()/2. - gauge_width/2.,
                 self.height()/2. - gauge_height/2.,
                 self.width()/2. + gauge_width/2.,
@@ -183,10 +220,11 @@ class Gauge(QWidget):
 
         pen.setColor(getattr(Colors, self.color))
         pen.setWidth(line_width)
-        painter.setPen()
+        painter.setPen(pen)
 
         brush.setColor(getattr(Colors, self.color))
-        painter.setBrush()
+        brush.setStyle(Qt.SolidPattern)
+        painter.setBrush(brush)
 
         # --------- #
 
@@ -205,12 +243,11 @@ class Gauge(QWidget):
     def set_quantity(self, quantity):
 
         self.token_number = int(quantity)
-        self.repaint()
 
     def set_color(self, color):
 
         self.color = color
-        self.repaint()
+
 # ----------------------------------------------------------------------------------------------------------- #
 # ------------------------------------------------ PIE CHART ------------------------------------------------ #
 # ----------------------------------------------------------------------------------------------------------- #
@@ -223,6 +260,8 @@ class PieChart(QWidget):
     def __init__(self, position):
 
         super().__init__()
+
+        self.background_color = "white"
 
         self.quantity_possibilities = np.arange(-4, 5, 1)
 
@@ -239,6 +278,15 @@ class PieChart(QWidget):
         self.textures = {}
 
         self.load_textures()
+
+        self.create_background()
+
+    def create_background(self):
+
+        pal = QPalette()
+        pal.setColor(QPalette.Background, getattr(Colors, self.background_color))
+        self.setAutoFillBackground(True)
+        self.setPalette(pal)
 
 # ------------------------------------------------ TEXTURES ------------------------------------------------ #
 
@@ -335,12 +383,9 @@ class PieChart(QWidget):
         self.quantities = [parameters["x0"], parameters["x1"]]
         self.beginning_angle = parameters["beginning_angle"]
 
-        self.repaint()
-
     def display_nothing(self):
 
         self.display = 0
-        self.repaint()
 
 # ----------------------------------------------------------------------------------------------------------- #
 # ------------------------------------------ GAME WINDOW ---------------------------------------------------- #
@@ -435,55 +480,66 @@ class GameWindow(QMainWindow):
             elif self.isVisible():
 
                 self.hide()
+        # print("GameWindow: ", self.current_step)
+        elif self.current_step == "show_stimuli":
 
-        elif self.current_step != self.previous_step:
-
-            print("GameWindow: ", self.current_step)
-            if self.current_step == "show_stimuli":
+            if self.current_step != self.previous_step:
 
                 self.hide_black_screen()
                 self.hide_pause_screen()
                 self.show_stimuli()
 
-            elif self.current_step == "show_black_screen":
+        elif self.current_step == "show_black_screen":
+
+            if self.current_step != self.previous_step:
 
                 self.hide_pause_screen()
                 self.hide_stimuli()
                 self.show_black_screen()
 
-            elif self.current_step == "show_pause_screen":
+        elif self.current_step == "show_pause_screen":
+
+            if self.current_step != self.previous_step:
 
                 self.show_pause_screen()
                 self.hide_black_screen()
                 self.hide_stimuli()
 
-            elif self.current_step == "show_choice":
-
+        elif self.current_step == "show_choice":
+            if self.current_step != self.previous_step:
                 self.hide_black_screen()
                 self.hide_pause_screen()
                 self.show_choice()
 
-            elif self.current_step == "show_results":
+        elif self.current_step == "show_results":
+
+            if self.current_step != self.previous_step:
 
                 self.hide_black_screen()
                 self.hide_pause_screen()
                 self.show_results()
 
-            elif self.current_step == "show_gauge":
+            else:
+
+                self.frames["gauge"].repaint()
+
+        elif self.current_step == "show_gauge":
+
+            if self.current_step != self.previous_step:
 
                 self.hide_pause_screen()
                 self.hide_black_screen()
                 self.hide_stimuli()
                 self.show_gauge()
 
-            elif self.current_step == "hide":
-                pass
-
             else:
+                self.frames["gauge"].repaint()
 
-                print("ERROR: WRONG COMMAND FOR GAME WINDOW: ", self.current_step)
+        else:
 
-            self.previous_step = self.current_step
+            print("ERROR: WRONG COMMAND FOR GAME WINDOW: ", self.current_step)
+
+        self.previous_step = self.current_step
 
     def show_stimuli(self):
 
@@ -497,11 +553,14 @@ class GameWindow(QMainWindow):
                     "x1": self.parameters["{}_x1".format(i)]
                  })
 
+            self.frames[i].repaint()
+
     def hide_stimuli(self):
 
         for i in ["left", "right"]:
 
             self.frames[i].display_nothing()
+            self.frames[i].repaint()
 
     def show_choice(self):
 
@@ -516,9 +575,11 @@ class GameWindow(QMainWindow):
                         "x0": self.parameters["{}_x0".format(i)],
                         "x1": self.parameters["{}_x1".format(i)]
                      })
+                self.frames[i].repaint()
 
             else:
                 self.frames[i].display_nothing()
+                self.frames[i].repaint()
 
     def show_results(self):
 
@@ -542,12 +603,19 @@ class GameWindow(QMainWindow):
                         "x1": x1
                     })
 
+                self.frames[i].repaint()
+
             else:
                 self.frames[i].display_nothing()
+
+                self.frames[i].repaint()
+        self.frames["gauge"].repaint()
 
     def show_gauge(self):
 
         self.frames["gauge"].show()
+
+        self.frames["gauge"].repaint()
 
     def show_black_screen(self):
 
