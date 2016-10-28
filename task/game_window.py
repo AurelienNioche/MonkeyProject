@@ -13,92 +13,64 @@ import numpy as np
 # ----------------------------------------------------------------------------------------------------------- #
 
 
-class Frame(QWidget):
-
-    def __init__(self, background_color="white"):
-
-        QWidget.__init__(self)
-
-        self.line_width = 0
-
-        self.background_color = background_color
-
-        self.color = {"white": QColor(255, 255, 255),
-                      "black": QColor(0, 0, 0),
-                      "blue": QColor(114, 212, 247),
-                      "green": QColor(18, 247, 41),
-                      "grey": QColor(220, 220, 220)}
-
-        self.painter = QPainter()
-        self.pen = {}
-        self.brush = {}
-
-        self.create_background()
-        self.prepare_pens_and_brushes()
-
-    def create_background(self):
-
-        pal = QPalette()
-        pal.setColor(QPalette.Background, self.color[self.background_color])
-        self.setAutoFillBackground(True)
-        self.setPalette(pal)
-
-    def prepare_pens_and_brushes(self):
-
-        for color in self.color:
-
-            self.pen[color] = QPen()
-            self.pen[color].setColor(self.color[color])
-
-            self.brush[color] = QBrush()
-            self.brush[color].setStyle(Qt.SolidPattern)
-            self.brush[color].setColor(self.color[color])
-
-        self.pen["transparent"] = QPen()
-        self.pen["transparent"].setStyle(Qt.NoPen)
-
-        self.brush["transparent"] = QBrush()
-        self.brush["transparent"].setStyle(Qt.NoBrush)
-
-        self.brush["texture"] = QBrush()
-
-    def paintEvent(self, e):
-
-        self.painter.begin(self)
-        self.draw()
-        self.painter.end()
-
-    def draw(self):
-        pass
+class Colors:
+    white = QColor(255, 255, 255)
+    black = QColor(0, 0, 0)
+    blue = QColor(114, 212, 247)
+    grey = QColor(220, 220, 220)
+    green = QColor(18, 247, 41)
+    red = QColor(255, 0, 0)
 
 # ----------------------------------------------------------------------------------------------------------- #
 # ------------------------------------------------ GAUGE ---------------------------------------------------- #
 # ----------------------------------------------------------------------------------------------------------- #
 
 
-class Pause(Frame):
+class Pause(QWidget):
 
     def __init__(self):
-        Frame.__init__(self)
+        super().__init__()
 
-    def draw(self):
+    def paintEvent(self, e):
+
+        painter = QPainter()
+        painter.begin(self)
+
+        pen = QPen()
+        brush = QBrush()
+
+        # --------------- #
 
         line_width = int(1 / 60. * self.height())
         rectangle_width = 0.1 * self.width()
         rectangle_height = 0.35 * self.height()
         margin = 0.03 * self.width()
 
-        self.painter.setPen(self.pen["white"])
-        self.painter.setBrush(self.brush["white"])
+        # --------------- #
+
+        pen.setColor(QColor(255, 255, 255))
+        painter.setPen(pen)
+        brush.setColor((QColor(255, 255, 255)))
+        brush.setStyle(Qt.SolidPattern)
+        painter.setBrush(brush)
+
+        # --------------- #
+
         rectangle = QRectF(
             0,
             0,
             self.width(),
             self.height())
-        self.painter.drawRect(rectangle)
 
-        self.pen["grey"].setWidth(line_width)
-        self.painter.setPen(self.pen["grey"])
+        painter.drawRect(rectangle)
+
+        # --------------- #
+
+        pen.setColor(QColor(220, 220, 220))  # Grey
+        pen.setWidth(line_width)
+        painter.setPen(pen)
+
+        # --------------- #
 
         rect_y = self.height() / 2. + margin/2. - rectangle_height/2.
 
@@ -110,7 +82,9 @@ class Pause(Frame):
             rectangle_width,
             rectangle_height)
 
-        self.painter.drawRect(rectangle)
+        painter.drawRect(rectangle)
+
+        # --------------- #
 
         rectangle = QRectF(
             x_center - margin / 2. - rectangle_width,
@@ -118,39 +92,61 @@ class Pause(Frame):
             rectangle_width,
             rectangle_height)
 
-        self.painter.drawRect(rectangle)
+        painter.drawRect(rectangle)
+
+        # ------------- #
+
+        painter.end()
 
 # ----------------------------------------------------------------------------------------------------------- #
 # ------------------------------------------------ GAUGE ---------------------------------------------------- #
 # ----------------------------------------------------------------------------------------------------------- #
 
 
-class Gauge(Frame):
+class Gauge(QWidget):
 
     def __init__(self, color="black"):
 
-        Frame.__init__(self)
+        super().__init__()
 
         self.color = color
         self.token_number = 0
 
-    def draw(self):
+    def paintEvent(self, event):
+
+        painter = QPainter()
+        painter.begin(self)
+
+        pen = QPen()
+        brush = QBrush()
+
+        # ----------- #
 
         line_width = int(1 / 60. * self.height())
         gauge_width = 0.25 * self.width()
         gauge_height = 0.9 * self.height()
 
-        self.draw_gauge(line_width=line_width, gauge_width=gauge_width, gauge_height=gauge_height)
-        self.draw_tokens(line_width=line_width, gauge_width=gauge_width, gauge_height=gauge_height)
+        # ---------- #
 
-    def draw_gauge(self, line_width, gauge_width, gauge_height):
+        self.draw_gauge(line_width=line_width, gauge_width=gauge_width, gauge_height=gauge_height, painter=painter,
+                        pen=pen)
+        self.draw_tokens(line_width=line_width, gauge_width=gauge_width, gauge_height=gauge_height,
+                         painter=painter, pen=pen, brush=brush)
 
-        self.painter.setPen(self.pen["black"])
+        painter.end()
 
-        self.pen[self.color].setWidth(line_width)
+    def draw_gauge(self, line_width, gauge_width, gauge_height, painter, pen):
 
-        self.painter.setBrush(self.brush["transparent"])
-        self.painter.setPen(self.pen[self.color])
+        pen.setColor(QColor(0, 0, 0))  # Black
+        pen.setWidth(line_width)
+        painter.setPen(pen)
+
+        # brush.setColor()
+        #
+        # self.painter.setBrush(self.brush["transparent"])
+        # self.painter.setPen(self.pen[self.color])
+
+        # ------------ #
 
         # Draw a rectangle
         rectangle = QRectF(
@@ -159,11 +155,14 @@ class Gauge(Frame):
             gauge_width,
             gauge_height)
 
-        self.painter.drawRect(rectangle)
+        painter.drawRect(rectangle)
+
+        # ------------ #
 
         # Hide the top
-        self.pen["white"].setWidth(1.1*line_width)
-        self.painter.setPen(self.pen["white"])
+        pen.setColor(QColor(255, 255, 255))
+        pen.setWidth(1.1*line_width)
+        painter.setPen(pen)
 
         self.painter.drawLine(
                 self.width()/2. - gauge_width/2.,
@@ -171,17 +170,25 @@ class Gauge(Frame):
                 self.width()/2. + gauge_width/2.,
                 self.height()/2. - gauge_height/2.)
 
-    def draw_tokens(self, line_width, gauge_width, gauge_height):
+    def draw_tokens(self, line_width, gauge_width, gauge_height, painter, pen, brush):
+
+        # ------------ #
 
         token_diameter = gauge_width - line_width*2
 
         first_token_position = \
             self.height()/2. + gauge_height/2. - token_diameter - line_width
 
-        self.pen[self.color].setWidth(line_width)
+        # ------------ #
 
-        self.painter.setPen(self.pen[self.color])
-        self.painter.setBrush(self.brush[self.color])
+        pen.setColor(getattr(Colors, self.color))
+        pen.setWidth(line_width)
+        painter.setPen()
+
+        brush.setColor(getattr(Colors, self.color))
+        painter.setBrush()
+
+        # --------- #
 
         for i in range(self.token_number):
 
@@ -191,7 +198,9 @@ class Gauge(Frame):
                 token_diameter,
                 token_diameter)
 
-            self.painter.drawEllipse(rect)
+            painter.drawEllipse(rect)
+
+        # ----------- #
 
     def set_quantity(self, quantity):
 
@@ -207,13 +216,13 @@ class Gauge(Frame):
 # ----------------------------------------------------------------------------------------------------------- #
 
 
-class PieChart(Frame):
+class PieChart(QWidget):
 
     textures_folder = "textures"
 
     def __init__(self, position):
 
-        Frame.__init__(self)
+        super().__init__()
 
         self.quantity_possibilities = np.arange(-4, 5, 1)
 
@@ -241,16 +250,28 @@ class PieChart(Frame):
 
 # ------------------------------------------------ DRAW ------------------------------------------------ #
 
-    def draw(self):
-
-        c_diameter = 0.5 * self.height()
-
-        line_width = int(1 / 60. * self.height())
-        self.pen["black"].setWidth(line_width)
+    def paintEvent(self, event):
 
         if self.display == 1:
 
-            self.painter.setPen(self.pen["black"])
+            painter = QPainter()
+            painter.begin(self)
+
+            brush = QBrush()
+            pen = QPen()
+
+            # ------------ #
+
+            c_diameter = 0.5 * self.height()
+            line_width = int(1 / 60. * self.height())
+
+            # ------------- #
+
+            pen.setColor(Colors.black)
+            pen.setWidth(line_width)
+            painter.setPen(pen)
+
+            # -------------- #
 
             rectangle = \
                 QRectF(self.width()/2. - c_diameter/2.,
@@ -268,28 +289,38 @@ class PieChart(Frame):
 
                     if self.quantities[i] is not None:
 
-                        self.brush["texture"].setTexture(
+                        # -------- #
+
+                        brush.setTexture(
                             QPixmap(self.textures[self.quantities[i]].scaled(self.width()*2, self.height()*2,
                                                                              Qt.KeepAspectRatio,
                                                                              Qt.SmoothTransformation)))
-                        self.brush["texture"].setStyle(Qt.TexturePattern)
-                        self.painter.setBrush(self.brush["texture"])
+                        brush.setStyle(Qt.TexturePattern)
+                        painter.setBrush(brush)
+
+                        # ---------- #
 
                         if angles[i] != 360*16:
 
-                            self.painter.drawPie(rectangle, set_angle, angles[i])
+                            painter.drawPie(rectangle, set_angle, angles[i])
                             set_angle += angles[i]
 
                         else:
 
-                            self.painter.drawEllipse(rectangle)
+                            painter.drawEllipse(rectangle)
                     else:
                         set_angle += angles[i]
 
             self.ellipse = QGraphicsEllipseItem(rectangle)
-            self.ellipse.setBrush(self.brush["transparent"])
-            self.ellipse.setPen(self.pen["transparent"])
-            self.ellipse.paint(self.painter, QStyleOptionGraphicsItem())
+
+            # self.ellipse.setBrush(self.brush["transparent"])
+            brush.setStyle(Qt.NoBrush)
+            pen.setStyle(Qt.NoPen)
+            self.ellipse.setBrush(brush)
+            self.ellipse.setPen(pen)
+            self.ellipse.paint(painter, QStyleOptionGraphicsItem())
+
+            painter.end()
 
         else:
             pass
