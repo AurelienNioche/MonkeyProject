@@ -7,7 +7,7 @@ import numpy as np
 
 class Database(object):
 
-    def __init__(self, database_name="results_trial"):
+    def __init__(self, database_name="results_sequential"):
 
         # Backup is a database format, using Sqlite3 management system
         self.folder_path = "{}/../results".format(path.dirname(path.dirname(path.realpath(__file__))))
