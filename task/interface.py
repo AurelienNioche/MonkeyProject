@@ -134,8 +134,6 @@ class Interface(QWidget):
 
     def run(self):
 
-        self.push_button_run.setEnabled(False)
-
         error, parameters = self.parameters_container.get_parameters()
 
         if error == 1:
@@ -145,6 +143,8 @@ class Interface(QWidget):
             QMessageBox().warning(self, "Warning!", msg)
 
         else:
+
+            self.push_button_run.setEnabled(False)
 
             print("Interface: Run task.")
 

@@ -57,13 +57,13 @@ class ParametersContainer(QWidget):
                       value_range=[1, 100000])
 
         self.parameters["result_display_time"] = \
-            Parameter(text="Result display time (ms)", initial_value=1500,
+            Parameter(text="Result display time (ms)", initial_value=1000,
                       value_range=[1, 100000])
 
         self.parameters["inter_trial_time"] = \
             MinMaxParameter(
                 text="Inter-trial time (ms)", initial_value_min=100,
-                initial_value_max=300,
+                initial_value_max=200,
                 value_range_min=[1, 100000],
                 value_range_max=[1, 100000])
 
