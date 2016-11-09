@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import QWidget, QGridLayout, QPushButton, QLabel, QMessageB
     QProgressBar
 from multiprocessing import Queue
 import sys
+import json
 from task.parametrisation import ParametersContainer
 
 
@@ -113,6 +114,9 @@ class Interface(QWidget):
         # noinspection PyUnresolvedReferences
         self.push_button_run.clicked.connect(self.run)
 
+        self.parameters = None
+        self.error = 0
+
         self.initialize()
 
     def initialize(self):
@@ -134,9 +138,9 @@ class Interface(QWidget):
 
     def run(self):
 
-        error, parameters = self.parameters_container.get_parameters()
+        self.error, self.parameters = self.parameters_container.get_parameters()
 
-        if error == 1:
+        if self.error == 1:
 
             msg = "Bad arguments!"
 
@@ -149,7 +153,7 @@ class Interface(QWidget):
             print("Interface: Run task.")
 
             # Communicate parameters through the queue
-            self.queue.put(("interface_run", parameters))
+            self.queue.put(("interface_run", self.parameters))
 
     def show_trial_counter(self):
 
@@ -173,7 +177,6 @@ class Interface(QWidget):
     def close_task(self):
 
         self.push_button_run.setEnabled(False)
-
         print("Interface: Close task.")
 
         self.queue.put(("interface_close_task",))
@@ -192,6 +195,22 @@ class Interface(QWidget):
         self.trial_counter.set_trial_number([0, 0])
 
     def closeEvent(self, event):
+
+        with open("parameters/parameters.json") as param_file:
+            old_param = json.load(param_file)
+
+        print(old_param, self.parameters)
+
+        if old_param != self.parameters:
+
+            buttonReply = QMessageBox.question(self, '', "Do you want to save the change in parameters?",
+                                               QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            if buttonReply == QMessageBox.Yes:
+                with open("parameters/parameters.json", "w") as param_file:
+                    json.dump(self.parameters, param_file)
+                print('Yes clicked.')
+            else:
+                print('No clicked.')
 
         print("Interface: Close window")
         self.queue.put(("interface_close_window",))

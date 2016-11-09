@@ -1,0 +1,1 @@
+{"initial_stock": 0.0, "valve_opening_time": 100.0, "max_return_time": 5000.0, "fake": false, "trials_per_block": 1.0, "result_display_time": 1000.0, "inter_trial_time": [100.0, 200.0], "reward_time": 1500.0, "monkey": "Gladys", "save": true, "punishment_time": 2000.0, "fixation_time": [500.0, 750.0], "max_decision_time": 5000.0}

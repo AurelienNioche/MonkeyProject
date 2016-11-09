@@ -1,6 +1,7 @@
 from PyQt5.QtWidgets import QWidget, QGridLayout, QLabel, QLineEdit, \
     QRadioButton, QCheckBox
 from collections import OrderedDict
+import json
 
 
 class ParametersContainer(QWidget):
@@ -14,24 +15,28 @@ class ParametersContainer(QWidget):
 
         self.parameters = OrderedDict()
 
+        with open("parameters/parameters.json") as param_file:
+
+            param = json.load(param_file)
+
         self.parameters["initial_stock"] = \
             Parameter(
-                text="Initial stock", initial_value=0,
+                text="Initial stock", initial_value=param["initial_stock"],
                 value_range=[0, 20])
 
         self.parameters["trials_per_block"] = \
             Parameter(
-                text="Trials per block", initial_value=1,
+                text="Trials per block", initial_value=param["trials_per_block"],
                 value_range=[1, 20])
 
         self.parameters["reward_time"] = \
             Parameter(
-                text="Reward time (ms)", initial_value=1500,
+                text="Reward time (ms)", initial_value=param["reward_time"],
                 value_range=[1000, 100000])
 
         self.parameters["valve_opening_time"] = \
             Parameter(
-                text="Valve opening time (ms)", initial_value=100,
+                text="Valve opening time (ms)", initial_value=param["valve_opening_time"],
                 value_range=[1, 10000])
 
         # self.parameters["grasping_time"] = \
@@ -42,43 +47,43 @@ class ParametersContainer(QWidget):
 
         self.parameters["fixation_time"] = \
             MinMaxParameter(
-                text="Fixation time (ms)", initial_value_min=500,
-                initial_value_max=750,
+                text="Fixation time (ms)", initial_value_min=param["fixation_time"][0],
+                initial_value_max=param["fixation_time"][1],
                 value_range_min=[1, 100000],
                 value_range_max=[1, 100000])
 
         self.parameters["max_decision_time"] = \
             Parameter(
-                text="Max decision time (ms)", initial_value=5000,
+                text="Max decision time (ms)", initial_value=param["max_decision_time"],
                 value_range=[1, 100000])
 
         self.parameters["max_return_time"] = \
-            Parameter(text="Max return time (ms)", initial_value=5000,
+            Parameter(text="Max return time (ms)", initial_value=param["max_return_time"],
                       value_range=[1, 100000])
 
         self.parameters["result_display_time"] = \
-            Parameter(text="Result display time (ms)", initial_value=1000,
+            Parameter(text="Result display time (ms)", initial_value=param["result_display_time"],
                       value_range=[1, 100000])
 
         self.parameters["inter_trial_time"] = \
             MinMaxParameter(
-                text="Inter-trial time (ms)", initial_value_min=100,
-                initial_value_max=200,
+                text="Inter-trial time (ms)", initial_value_min=param["inter_trial_time"][0],
+                initial_value_max=param["inter_trial_time"][1],
                 value_range_min=[1, 100000],
                 value_range_max=[1, 100000])
 
         self.parameters["punishment_time"] = \
-            Parameter(text="Punishment time (ms)", initial_value=2000,
+            Parameter(text="Punishment time (ms)", initial_value=param["punishment_time"],
                       value_range=[1, 100000])
 
         self.parameters["monkey"] = \
             RadioParameter(text="Monkey", text_radio1="Havane", text_radio2="Gladys")
 
         self.parameters["save"] = \
-            CheckParameter(text="Save results", checked=True)
+            CheckParameter(text="Save results", checked=param["save"])
 
         self.parameters["fake"] = \
-            CheckParameter(text="Use fake grip and reward system", checked=False)
+            CheckParameter(text="Use fake grip and reward system", checked=param["fake"])
 
         for i, p in enumerate(self.parameters.keys()):
 
