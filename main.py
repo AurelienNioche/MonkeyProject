@@ -1,6 +1,7 @@
 # coding=utf-8
 from multiprocessing import Queue
 from PyQt5.QtWidgets import QApplication
+from PyQt5.QtGui import QIcon
 import sys
 from task.game_window import GameWindow
 from task.interface import Interface
@@ -12,6 +13,7 @@ if __name__ == "__main__":
     # Start graphic processes
 
     app = QApplication(sys.argv)
+    app.setWindowIcon(QIcon("textures/monkey.png"))
 
     graphic_queue = Queue()
 
