@@ -39,12 +39,6 @@ class ParametersContainer(QWidget):
                 text="Valve opening time (ms)", initial_value=param["valve_opening_time"],
                 value_range=[1, 10000])
 
-        # self.parameters["grasping_time"] = \
-        #     Parameter(
-        #         text="Grasping time (ms)",
-        #         initial_value=250,
-        #         value_range=[1, 100000])
-
         self.parameters["fixation_time"] = \
             MinMaxParameter(
                 text="Fixation time (ms)", initial_value_min=param["fixation_time"][0],
