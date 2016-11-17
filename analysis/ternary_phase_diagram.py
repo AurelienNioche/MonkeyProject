@@ -18,7 +18,6 @@ def generate_heatmap_data(scale=5):
     from ternary.helpers import simplex_iterator
     d = dict()
     for (i, j, k) in simplex_iterator(scale):
-        print(i, j, k)
         d[(i, j, k)] = np.random.random()
     return d
 

@@ -199,18 +199,17 @@ class Interface(QWidget):
         with open("parameters/parameters.json") as param_file:
             old_param = json.load(param_file)
 
-        print(old_param, self.parameters)
-
         if old_param != self.parameters:
 
-            buttonReply = QMessageBox.question(self, '', "Do you want to save the change in parameters?",
-                                               QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-            if buttonReply == QMessageBox.Yes:
+            button_reply = \
+                QMessageBox.question(self, '', "Do you want to save the change in parameters?",
+                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            if button_reply == QMessageBox.Yes:
                 with open("parameters/parameters.json", "w") as param_file:
                     json.dump(self.parameters, param_file)
-                print('Yes clicked.')
+                print('Interface: parameters saved.')
             else:
-                print('No clicked.')
+                print('Interface: saving of parameters aborted.')
 
         print("Interface: Close window")
         self.queue.put(("interface_close_window",))

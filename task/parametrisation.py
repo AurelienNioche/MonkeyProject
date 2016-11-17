@@ -114,7 +114,7 @@ class Parameter(object):
     def get_value(self):
 
         try:
-            value = float(self.edit.text())
+            value = int(self.edit.text())
 
             if self.value_range[0] <= value <= self.value_range[1]:
                 return value
@@ -146,7 +146,7 @@ class ListParameter(object):
         e = 0
 
         try:
-            value = [float(i) for i in self.edit.text().split(",")]
+            value = [int(i) for i in self.edit.text().split(",")]
 
             for i in value:
 
@@ -187,8 +187,8 @@ class MinMaxParameter(object):
     def get_value(self):
 
         try:
-            value_min = float(self.edit_min.text())
-            value_max = float(self.edit_max.text())
+            value_min = int(self.edit_min.text())
+            value_max = int(self.edit_max.text())
 
             if self.value_range_min[0] <= value_min <= self.value_range_min[1] \
                     and self.value_range_max[0] <= value_max <= self.value_range_max[1]:
