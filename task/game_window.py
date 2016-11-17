@@ -734,6 +734,15 @@ class GameWindow(QMainWindow):
             self.fake_grip_queue.put(0)
             self.fake_grip_value.value = 0
 
+# ----------------------------------------- RESIZE EVENT ------------------------------------------------ #
+
+    def resizeEvent(self, event):
+
+        if not self.isFullScreen() and not self.cursor_visible:
+
+            self.unsetCursor()
+            self.cursor_visible = True
+
 # ------------------------------------------------ CLOSE ------------------------------------------------ #
 
     def closeEvent(self, event):
