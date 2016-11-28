@@ -64,6 +64,9 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
         self.dice_output = 0
 
+        self.current_saving = Event()
+        self.data_saved = Event()
+
         # -------- TIME & TIMERS ----------- #
 
         self.timer = None
@@ -163,6 +166,9 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 # --------------------------------------- END PROGRAM ------------------------------------------------------------ #
 
     def end_program(self):
+
+        if self.current_saving.is_set():
+            self.data_saved.wait()
 
         if self.timer:
             self.timer.cancel()
@@ -611,6 +617,10 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
     def save_session(self):
 
+        # In case of trying to end program
+        self.data_saved.clear()
+        self.current_saving.set()
+
         print("Experimentalist: SAVE SESSION.")
 
         self.parameters.pop("save")
@@ -662,6 +672,9 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
             database.fill_table(session_table_name, **self.to_save[i])
 
         print("Experimentalist: DATA SAVED.")
+
+        self.current_saving.clear()
+        self.data_saved.set()
 
 
 
