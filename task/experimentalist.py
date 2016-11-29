@@ -630,18 +630,29 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
         database = Database()
         summary_table_name = "summary"
+
+        # Verify if a summary table exists, otherwise, create it
         if not database.table_exists(summary_table_name):
 
-            print("Experimentalist: Create new summary table.")
-
             columns = OrderedDict()
-            for key, value in self.parameters.items():
+
+            # Add columns for date and name of session table
+            columns["date"] = str
+            columns["session_table"] = str
+
+            # Add a column for every parameter in parameter dic
+            for key, value in sorted(self.parameters.items()):
                 columns[key] = type(value)
             database.create_table(
                 table_name=summary_table_name,
                 columns=columns)
-        print("Experimentalist: Summary table already exists.")
 
+            print("Experimentalist: Summary table created.")
+
+        else:
+            print("Experimentalist: Summary table already exists.")
+
+        # Create a session table
         print("Experimentalist: Create session table.")
         monkey = self.parameters["monkey"]
         session_table_name = "session_{}_{}".format(str(date.today()).replace("-", "_"), monkey)
@@ -649,17 +660,15 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
             print("Experimentalist: Session table with name {} already exists.".format(session_table_name))
 
-            idx = 1
-            session_table_name += "_n{}".format(idx)
+            idx = 2
+            session_table_name += "({})".format(idx)
             while database.table_exists(table_name=session_table_name):
                 print("Experimentalist: Session table with name {} already exists.".format(session_table_name))
-                session_table_name = session_table_name.replace("n{}".format(idx), "n{}".format(idx+1))
+                session_table_name = session_table_name.replace("({})".format(idx), "({})".format(idx+1))
                 idx += 1
 
-        print("Experimentalist: I create session table with name {}.".format(session_table_name))
-
         columns = OrderedDict()
-        for key, value in self.to_save[0].items():
+        for key, value in sorted(self.to_save[0].items()):
             columns[key] = type(value)
 
         database.create_table(
@@ -667,7 +676,13 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
             columns=columns
         )
 
-        database.fill_table(summary_table_name, **self.parameters)
+        print("Experimentalist: Session table created with name {}.".format(session_table_name))
+
+        # Fill summary table
+        database.fill_table(summary_table_name, **self.parameters, date=str(date.today()),
+                            session_table=session_table_name)
+
+        # Fill session table
         for i in range(len(self.to_save)):
             database.fill_table(session_table_name, **self.to_save[i])
 

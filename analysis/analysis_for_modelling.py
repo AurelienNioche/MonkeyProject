@@ -1,5 +1,5 @@
 from pylab import plt, np
-from save.save import Database
+from task.save import Database
 from os import path, mkdir
 from multiprocessing import Pool, cpu_count
 from itertools import product
@@ -21,11 +21,11 @@ def str_to_list(str_element):
 
 def select_posterior_dates(dates_list, starting_point):
 
-    starting_point = [int(i) for i in starting_point.split("/")]
+    starting_point = [int(i) for i in starting_point.split("-")]
 
     new_dates = []
     for str_date in dates_list:
-        date = [int(i) for i in str_date.split("/")]
+        date = [int(i) for i in str_date.split("-")]
         if date[0] > starting_point[0]:
 
             new_dates.append(str_date)
@@ -40,11 +40,11 @@ def select_posterior_dates(dates_list, starting_point):
 
 class ArchetypeFinder(object):
 
-    def __init__(self, database_name):
+    def __init__(self, database_folder, database_name, starting_point):
 
-        self.db = Database(database_name)
+        self.db = Database(database_folder=database_folder, database_name=database_name)
         self.monkey_reference = "Havane"
-        self.starting_point = "2016/08/11"
+        self.starting_point = starting_point
 
     @staticmethod
     def expected_value(lottery):
@@ -72,7 +72,7 @@ class ArchetypeFinder(object):
         return incongruent_lotteries
 
     @staticmethod
-    def select_unique_lotteries(errors, str_probas, str_quantities):
+    def select_unique_lotteries(errors, probas, quantities):
 
         lotteries = []
 
@@ -80,31 +80,28 @@ class ArchetypeFinder(object):
 
             if errors[t] == "None":
                 lottery = (
-                    (float(str_probas["left"][t]), str_to_list(str_quantities["left"][t])[0]),
-                    (float(str_probas["right"][t]), str_to_list(str_quantities["right"][t])[0])
+                    (probas["left"][t], quantities["left"][t]),
+                    (probas["right"][t], quantities["right"][t])
 
                 )
 
                 if lottery not in lotteries and lottery[::-1] not in lotteries:
                     lotteries.append(lottery)
 
-        print("N unique couple of lotteries:", len(lotteries))
-
         return lotteries
 
     def run(self):
 
-        dates = self.db.read_column(table_name="summary", column_name='date', monkey=self.monkey_reference)
-
-        dates = select_posterior_dates(dates, self.starting_point)
+        all_dates = self.db.read_column(table_name="summary", column_name='date', monkey=self.monkey_reference)
+        dates = select_posterior_dates(all_dates, self.starting_point)
         print("Dates", dates)
         print("N dates", len(dates))
 
-        errors, str_probas, str_quantities = self.get_errors_str_probas_and_str_quantities_from_db(dates)
+        errors, probas, quantities = self.get_errors_probas_and_quantities_from_db(dates)
 
-        # valid_trials = np.asarray(errors) == "None"
+        lotteries = self.select_unique_lotteries(errors, probas, quantities)
 
-        lotteries = self.select_unique_lotteries(errors, str_probas, str_quantities)
+        print("N unique couple of lotteries:", len(lotteries))
 
         incongruent_lotteries_in_arbitrary_order = self.get_incongruent_lotteries(lotteries)
 
@@ -113,26 +110,28 @@ class ArchetypeFinder(object):
 
         return incongruent_lotteries
 
-    def get_errors_str_probas_and_str_quantities_from_db(self, dates):
+    def get_errors_probas_and_quantities_from_db(self, dates):
 
-        str_probas = {"left": [], "right": []}
-        str_quantities = {"left": [], "right": []}
+        probas = {"left": [], "right": []}
+        quantities = {"left": [], "right": []}
         errors = []
         for date in dates:
 
             session_table = \
-                self.db.read_column(table_name="summary", column_name='session_table_ID',
+                self.db.read_column(table_name="summary", column_name='session_table',
                                     monkey=self.monkey_reference, date=date)
 
             errors += \
                 self.db.read_column(table_name=session_table, column_name="error")
 
             for side in ["left", "right"]:
-                str_probas[side] += self.db.read_column(table_name=session_table, column_name='{}_p'.format(side))
 
-                str_quantities[side] += self.db.read_column(table_name=session_table, column_name='{}_q'.format(side))
+                probas[side] += \
+                    [float(i) for i in self.db.read_column(table_name=session_table, column_name='{}_p'.format(side))]
+                quantities[side] += \
+                    [int(i) for i in self.db.read_column(table_name=session_table, column_name='{}_x0'.format(side))]
 
-        return errors, str_probas, str_quantities
+        return errors, probas, quantities
 
     def class_lotteries_according_to_difference_in_expected_value(self, lotteries_list):
 
@@ -167,7 +166,7 @@ class Model(object):
 
     reward_max = 4
 
-    def __init__(self, r,tau,  alpha):
+    def __init__(self, r, tau,  alpha):
 
         self.r = r
         self.tau = tau
@@ -274,36 +273,44 @@ class ModelRunner(object):
 
 class DataGetter(object):
 
-    def __init__(self, database_name, monkey):
+    def __init__(self, database_folder, database_name, starting_point, monkey):
 
-        self.db = Database(database_name)
+        self.db = Database(database_folder=database_folder, database_name=database_name)
         self.monkey = monkey
-        self.starting_point = "2016/08/11"
+        self.starting_point = starting_point
 
-    def get_errors_str_choices_str_probas_str_quantities(self, dates):
+    def get_errors_choices_probas_and_quantities(self, dates):
 
-        str_probas = {"left": [], "right": []}
-        str_quantities = {"left": [], "right": []}
+        probas = {"left": [], "right": []}
+        quantities = {"left": [], "right": []}
         errors = []
-        str_choices = []
+        choices = []
         for date in dates:
 
             session_table = \
-                self.db.read_column(table_name="summary", column_name='session_table_ID',
+                self.db.read_column(table_name="summary", column_name='session_table',
                                     monkey=self.monkey, date=date)
+
+            # If multiple tables for the same day and the same monkey, take only the last one!
+            if type(session_table) == list:
+                session_table = session_table[-1]
 
             errors += \
                 self.db.read_column(table_name=session_table, column_name="error")
 
-            str_choices += \
-                self.db.read_column(table_name=session_table, column_name="choice")
+            choices += \
+                [i == "left" for i in self.db.read_column(table_name=session_table, column_name="choice")]
 
             for side in ["left", "right"]:
-                str_probas[side] += self.db.read_column(table_name=session_table, column_name='{}_p'.format(side))
+                probas[side] += \
+                    [float(i) for i in self.db.read_column(table_name=session_table, column_name='{}_p'.format(side))]
 
-                str_quantities[side] += self.db.read_column(table_name=session_table, column_name='{}_q'.format(side))
+                quantities[side] += \
+                    [int(i) for i in self.db.read_column(table_name=session_table, column_name='{}_x0'.format(side))]
 
-        return errors, str_choices, str_probas, str_quantities
+        choices = np.asarray(choices)
+
+        return errors, choices, probas, quantities
 
     def get_n_and_k_per_lotteries(self, lotteries):
 
@@ -317,9 +324,7 @@ class DataGetter(object):
         n_per_lotteries = np.zeros(len(lotteries))
         k_per_lotteries = np.zeros(len(lotteries))
 
-        errors, str_choices, str_probas, str_quantities = self.get_errors_str_choices_str_probas_str_quantities(dates)
-
-        choices = np.asarray(str_choices) == "left"
+        errors, choices, probas, quantities = self.get_errors_choices_probas_and_quantities(dates)
 
         print("N trials (errors included)", len(choices))
 
@@ -328,8 +333,8 @@ class DataGetter(object):
 
         for i in valid_trials:
             lottery = np.array([
-                [float(str_probas["left"][i]), str_to_list(str_quantities["left"][i])[0]],
-                [float(str_probas["right"][i]), str_to_list(str_quantities["right"][i])[0]]
+                [probas["left"][i], quantities["left"][i]],
+                [probas["right"][i], quantities["right"][i]]
             ])
 
             for idx, ex_lottery in enumerate(lotteries):
@@ -350,8 +355,6 @@ class DataGetter(object):
                     n_per_lotteries[idx] += 1
                     k_per_lotteries[idx] += 1 - choices[i]
                     break
-
-        print("Results for Havane\n")
 
         print("N per lotteries: ", n_per_lotteries)
         print("K per lotteries:", k_per_lotteries)
@@ -443,7 +446,7 @@ class Fit(object):
 
 class Analysis(object):
 
-    def __init__(self, lse_fit, mle_fit, model_parameters, monkey, n_trials):
+    def __init__(self, lse_fit, mle_fit, model_parameters, monkey, figure_folder, n_trials):
 
         self.lse_fit = lse_fit
         self.mle_fit = mle_fit
@@ -451,7 +454,7 @@ class Analysis(object):
         self.monkey = monkey
         self.n_trials = n_trials
         self.parameters_name = ["r", "tau", "alpha"]
-        self.fig_folder = "../figures"
+        self.fig_folder = figure_folder
 
     def run(self):
 
@@ -818,14 +821,14 @@ class Analysis(object):
 
 class SimpleAnalysis(object):
 
-    def __init__(self, monkey, exp_n_values, exp_k_values, lotteries):
+    def __init__(self, monkey, figure_folder, exp_n_values, exp_k_values, lotteries):
 
         self.monkey = monkey
         self.exp_n_values = exp_n_values
         self.exp_k_values = exp_k_values
         self.lotteries = lotteries
 
-        self.fig_folder = "../figures"
+        self.fig_folder = figure_folder
 
         self.X = []
         self.Y = []
@@ -936,14 +939,14 @@ class SimpleAnalysis(object):
         plt.show()
 
 
-def get_archetypes(database_name, incongruent_lotteries_couples_file, force=False):
+def get_archetypes(database_name, database_folder, starting_point, incongruent_lotteries_couples_file, force=False):
 
     if path.exists(incongruent_lotteries_couples_file) and not force:
 
         incongruent_lotteries = np.load(incongruent_lotteries_couples_file)
 
     else:
-        a = ArchetypeFinder(database_name=database_name)
+        a = ArchetypeFinder(database_folder=database_folder, database_name=database_name, starting_point=starting_point)
         incongruent_lotteries = a.run()
         np.save(incongruent_lotteries_couples_file, incongruent_lotteries)
 
@@ -968,7 +971,7 @@ def get_model_parameters_and_p_values(model_parameters_file, model_p_values_file
     return model_parameters, model_p_values
 
 
-def get_monkey_data(monkey, monkey_data_files, database_name, lotteries, force=False):
+def get_monkey_data(monkey, monkey_data_files, starting_point, database_folder, database_name, lotteries, force=False):
 
     if path.exists(monkey_data_files[monkey]["n"]) and path.exists(monkey_data_files[monkey]["k"]) and not force:
 
@@ -977,7 +980,8 @@ def get_monkey_data(monkey, monkey_data_files, database_name, lotteries, force=F
 
     else:
 
-        d = DataGetter(database_name=database_name, monkey=monkey)
+        d = DataGetter(database_folder=database_folder, database_name=database_name,
+                       monkey=monkey, starting_point=starting_point)
         n_per_lotteries, k_per_lotteries = d.get_n_and_k_per_lotteries(lotteries)
 
         np.save(monkey_data_files[monkey]["n"], n_per_lotteries)
@@ -1010,8 +1014,11 @@ def get_fit(model_parameters, model_p_values, exp_n_values, exp_k_values, monkey
 
 def main():
 
-    database_name = "../Results/results"
-    npy_files_folder = "../analysis_npy_files"
+    starting_point = "2016-08-11"
+    database_folder = "../../results"
+    figure_folder = "../../figures"
+    database_name = "results_sequential"
+    npy_files_folder = "../../analysis_sequential_npy_files"
     incongruent_lotteries_couples_file = "{}/{}.npy".format(npy_files_folder, "incongruent_lotteries_couples")
     model_p_values_file = "{}/{}.npy".format(npy_files_folder, "model_p_values")
     model_parameters_file = "{}/{}.npy".format(npy_files_folder, "model_parameters")
@@ -1034,10 +1041,10 @@ def main():
             }
     }
 
-    monkeys = "Havane", "Gladys"
+    monkeys = ["Gladys"]
 
     incongruent_lotteries = \
-        get_archetypes(database_name=database_name,
+        get_archetypes(database_folder=database_folder, database_name=database_name, starting_point=starting_point,
                        incongruent_lotteries_couples_file=incongruent_lotteries_couples_file)
 
     model_parameters, model_p_values = \
@@ -1049,10 +1056,10 @@ def main():
 
         n_per_incongruent_lotteries, k_per_incongruent_lotteries = \
             get_monkey_data(monkey=monkey, monkey_data_files=monkey_data_files,
+                            starting_point=starting_point,
+                            database_folder=database_folder,
                             database_name=database_name,
                             lotteries=incongruent_lotteries)
-
-        # print(k_per_incongruent_lotteries / n_per_incongruent_lotteries)
 
         lse_fit, mle_fit = get_fit(
             model_parameters=model_parameters, model_p_values=model_p_values,
@@ -1061,11 +1068,12 @@ def main():
             monkey_data_files=monkey_data_files, monkey=monkey)
 
         a = Analysis(lse_fit=lse_fit, mle_fit=mle_fit, model_parameters=model_parameters, monkey=monkey,
+                     figure_folder=figure_folder,
                      n_trials=int(np.sum(n_per_incongruent_lotteries)))
 
         a.lse_basic_analysis()
         a.lse_plot_error_according_to_parameter_values()
-        a.lse_plot_phase_diagram(force=True, inv_colors=True)
+        a.lse_plot_phase_diagram()
 
         a.mle_plot_error_according_to_parameter_value()
         a.mle_plot_phase_diagram()
@@ -1074,7 +1082,8 @@ def main():
         b = SimpleAnalysis(monkey=monkey,
                            lotteries=incongruent_lotteries,
                            exp_n_values=n_per_incongruent_lotteries,
-                           exp_k_values=k_per_incongruent_lotteries)
+                           exp_k_values=k_per_incongruent_lotteries,
+                           figure_folder=figure_folder)
         b.run()
 
 if __name__ == "__main__":
