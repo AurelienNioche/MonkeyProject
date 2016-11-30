@@ -3,9 +3,10 @@ import numpy as np
 
 class StimuliFinder(object):
     def __init__(self):
-        self.possible_p = [0.2, 5, 0.5, 0.75, 1]
+
+        self.possible_p = [0.25, 0.5, 0.75, 1]
         self.positive_x = np.arange(1, 5)
-        self.negative_x = np.arange(-4, 1)
+        self.negative_x = np.arange(-4, 0)
 
         self.stimuli_parameters = {
             "left_p": 0,
@@ -33,6 +34,7 @@ class StimuliFinder(object):
 
     def find(self):
         np.random.choice(self.conditions, p=[0.1, 0.1, 0.1, 0.1, 0.3, 0.3])()
+        print(self.stimuli_parameters)
 
         return self.stimuli_parameters
 

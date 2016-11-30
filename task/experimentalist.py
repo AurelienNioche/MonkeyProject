@@ -543,7 +543,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
         reward = self.gauge_level
 
-        time_per_unity = reward_time / 4
+        time_per_unity = reward_time / 8
 
         if reward > 0:
 
