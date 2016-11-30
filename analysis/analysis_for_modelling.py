@@ -8,17 +8,6 @@ from scipy.optimize import curve_fit
 import ternary
 
 
-def str_to_list(str_element):
-
-    to_return = str_element[1:-1]  # Remove brackets
-    to_return = to_return.split(' ')  # Create list using space as delimiter
-    to_return = [i for i in filter(lambda x: x != "", to_return)]  # Remove empty strings from list
-    to_return = [float(i.replace(",", "")) for i in
-                 to_return]  # Convert in float, but removing coma just before
-
-    return to_return
-
-
 def select_posterior_dates(dates_list, starting_point):
 
     starting_point = [int(i) for i in starting_point.split("-")]
@@ -225,9 +214,10 @@ class ModelRunner(object):
         self.possible_tau_values = np.linspace(0.005, 1., self.n_values_per_parameter)
         self.possible_alpha_values = np.linspace(0., 1., self.n_values_per_parameter)
 
-        self.n_parameters_vectors = len(self.possible_alpha_values) \
-                                    * len(self.possible_tau_values) \
-                                    * len(self.possible_r_values)
+        self.n_parameters_vectors = \
+            len(self.possible_alpha_values) \
+            * len(self.possible_tau_values) \
+            * len(self.possible_r_values)
 
         self.parameters = np.zeros((self.n_parameters_vectors, 3))
 
@@ -837,51 +827,10 @@ class SimpleAnalysis(object):
         self.n_per_expected_value = {}
         self.k_per_expected_value = {}
 
-
     @staticmethod
     def expected_value(lottery):
 
         return lottery[0] * lottery[1]
-
-    def _old_run(self):
-
-        fig_name = "{}/{}_diff_expected_value.pdf".format(self.fig_folder, self.monkey)
-
-        i = 0
-
-        for l0, l1 in self.lotteries:
-
-            diff_exp_value = self.expected_value(l0) - self.expected_value(l1)
-            # print(diff_exp_value)
-            if diff_exp_value not in self.X:
-                self.X.append(diff_exp_value)
-
-                self.n_per_expected_value[diff_exp_value] = 0
-                self.k_per_expected_value[diff_exp_value] = 0
-
-            self.n_per_expected_value[diff_exp_value] += self.exp_n_values[i]
-            self.k_per_expected_value[diff_exp_value] += self.exp_k_values[i]
-
-            i += 1
-
-        for x in self.X:
-
-            a = np.zeros(int(self.n_per_expected_value[x]))
-            a[:int(self.k_per_expected_value[x])] = 1
-
-            self.Y.append(np.mean(a))
-            self.Y_std.append(np.std(a))
-
-        Analysis.plot(x=self.X,
-                      y=np.asarray(self.Y),
-                      y_std=self.Y_std,
-                      x_label="Difference in expected value between the riskiest option and the safest option",
-                      y_label="Frequency of choosing riskiest option",
-                      fig_name=fig_name,
-                      monkey=self.monkey,
-                      x_lim=[-1.25, 1.25],
-                      y_lim=[-0.001, 1.001],
-                      n_trials=np.sum(np.asarray([i for i in self.n_per_expected_value.values()], dtype=int)))
 
     @staticmethod
     def sigmoid(x, x0, k):
@@ -906,19 +855,16 @@ class SimpleAnalysis(object):
         for l0, l1 in self.lotteries:
 
             diff_exp_value = self.expected_value(l0) - self.expected_value(l1)
-            # print(diff_exp_value)
 
             xdata[i] = diff_exp_value
             ydata[i] = self.exp_k_values[i] / self.exp_n_values[i]
 
             i += 1
 
-        # xdata = np.array([0.0, 1.0, 3.0, 4.3, 7.0, 8.0, 8.5, 10.0, 12.0])
-        # ydata = np.array([0.01, 0.02, 0.04, 0.11, 0.43, 0.7, 0.89, 0.95, 0.99])
-
         popt, pcov = curve_fit(self.sigmoid, xdata, ydata)
 
         x = np.linspace(-1.25, 1.25, 50)
+        # noinspection PyTypeChecker
         y = self.sigmoid(x, *popt)
 
         plt.plot(xdata, ydata, 'o', color=(0., 0., 0.), label='data')

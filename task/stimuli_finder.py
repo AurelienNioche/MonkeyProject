@@ -38,7 +38,7 @@ class StimuliFinder(object):
                 self.random
             ]
 
-        self.probability_distribution_on_conditions = [0.4, 0.4, 0.2]
+        self.probability_distribution_on_conditions = [0.25, 0.25, 0.5]
 
     def find(self):
 
@@ -68,9 +68,11 @@ class StimuliFinder(object):
         print("StimulusFinder: Random")
         while True:
 
-            p = np.random.choice(self.possible_p, size=2, replace=False)
-            x0 = np.random.choice(self.positive_x, size=2, replace=False)
-            x1 = np.random.choice(list(self.negative_x) + [0], size=2, replace=False)
+            p = np.random.choice(self.possible_p, size=2)
+            x0 = np.zeros(2, dtype=int)
+            x1 = np.zeros(2, dtype=int)
+            x0[0], x1[0] = np.random.choice(list(self.negative_x) + [0] + list(self.positive_x), size=2, replace=False)
+            x0[1], x1[1] = np.random.choice(list(self.negative_x) + [0] + list(self.positive_x), size=2, replace=False)
 
             if p[0] == p[1]:
 
