@@ -506,7 +506,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
         reward = self.stimuli_parameters["{}_x{}".format(self.choice, self.dice_output)]
 
-        time_per_unity = results_display_time / 4
+        time_per_unity = results_display_time / self.stimuli_finder.maximum_x
 
         if reward > 0:
             sound = "reward"
@@ -543,7 +543,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
         reward = self.gauge_level
 
-        time_per_unity = reward_time / 8
+        time_per_unity = reward_time / self.stimuli_finder.gauge_maximum
 
         if reward > 0:
 

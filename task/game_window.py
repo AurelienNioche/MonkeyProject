@@ -255,7 +255,7 @@ class Gauge(QWidget):
 
 class PieChart(QWidget):
 
-    textures_folder = "textures"
+    textures_folder = "../textures"
 
     def __init__(self, position):
 

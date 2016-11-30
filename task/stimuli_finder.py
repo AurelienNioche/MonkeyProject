@@ -1,12 +1,21 @@
 import numpy as np
+from threading import Thread
+from multiprocessing import Queue, Event
+from PyQt5.QtWidgets import QApplication
+from PyQt5.QtCore import QThread
+from task.game_window import GameWindow
+import sys
 
 
 class StimuliFinder(object):
     def __init__(self):
 
+        self.gauge_maximum = 6
+        self.maximum_x = 3
+
         self.possible_p = [0.25, 0.5, 0.75, 1]
-        self.positive_x = np.arange(1, 5)
-        self.negative_x = np.arange(-4, 0)
+        self.positive_x = np.arange(1, 4)
+        self.negative_x = np.arange(-3, 0)
 
         self.stimuli_parameters = {
             "left_p": 0,
@@ -24,73 +33,68 @@ class StimuliFinder(object):
 
         self.conditions = \
             [
-                self.p_fixed_x0_change_possible_loss_x1_fixed_zero,
-                self.p_fixed_x0_change_positive_x1_fixed_possible_loss,
-                self.p_change_x0_fixed_positive_x1_fixed_possible_loss,
-                self.p_change_x0_fixed_possible_loss_x1_fixed_zero,
-                self.safe_vs_possible_loss,
+                self.p_fixed,
+                self.x_fixed,
                 self.random
             ]
 
-    def find(self):
-        np.random.choice(self.conditions, p=[0.1, 0.1, 0.1, 0.1, 0.3, 0.3])()
-        print(self.stimuli_parameters)
+        self.probability_distribution_on_conditions = [0.4, 0.4, 0.2]
 
+    def find(self):
+
+        np.random.choice(self.conditions, p=self.probability_distribution_on_conditions)()
         return self.stimuli_parameters
 
-    def p_fixed_x0_change_possible_loss_x1_fixed_zero(self):
-        print("p: fixed; x0: possible loss; x1: equal to zero")
+    def p_fixed(self):
+
+        print("StimulusFinder: p fixed.")
 
         single_p = np.random.choice(self.possible_p)
         x0 = np.random.choice(list(self.positive_x) + list(self.negative_x), size=2, replace=False)
 
         self.assign_values(p=[single_p, single_p], x0=x0, x1=[0, 0])
 
-    def p_fixed_x0_change_positive_x1_fixed_possible_loss(self):
-        print("p: fixed; x0: possible loss; x1: equal to zero")
+    def x_fixed(self):
 
-        single_p = np.random.choice(self.possible_p)
-        x0 = np.random.choice(self.positive_x, size=2, replace=False)
-        single_x1 = np.random.choice(list(self.negative_x) + [0])
-
-        self.assign_values(p=[single_p, single_p], x0=x0, x1=[single_x1, single_x1])
-
-    def p_change_x0_fixed_positive_x1_fixed_possible_loss(self):
-        print("p: change; x0: fixed and positive; x1: fixed and possible loss")
-
-        p = np.random.choice(self.possible_p, size=2, replace=False)
-        single_x0 = np.random.choice(self.positive_x)
-        single_x1 = np.random.choice(list(self.positive_x) + list(self.negative_x))
-
-        self.assign_values(p=p, x0=[single_x0, single_x0], x1=[single_x1, single_x1])
-
-    def p_change_x0_fixed_possible_loss_x1_fixed_zero(self):
-        print("p: change; x0: fixed and possible loss; x1: fixed and equal to zero")
+        print("StimulusFinder: x fixed.")
 
         p = np.random.choice(self.possible_p, size=2, replace=False)
         single_x0 = np.random.choice(list(self.positive_x) + list(self.negative_x))
 
         self.assign_values(p=p, x0=[single_x0, single_x0], x1=[0, 0])
 
-    def safe_vs_possible_loss(self):
-        print("safe versus possible loss")
-
-        p = sorted(np.random.choice(self.possible_p, size=2, replace=False), reverse=True)
-        x0 = sorted(np.random.choice(self.positive_x, size=2, replace=False))
-        x1 = [0, np.random.choice(self.negative_x)]
-
-        self.assign_values(p=p, x0=x0, x1=x1)
-
     def random(self):
-        print("random")
 
-        p = np.random.choice(self.possible_p, size=2, replace=False)
-        x0 = np.random.choice(self.positive_x, size=2, replace=False)
-        x1 = np.random.choice(list(self.negative_x) + [0], size=2, replace=False)
+        print("StimulusFinder: Random")
+        while True:
+
+            p = np.random.choice(self.possible_p, size=2, replace=False)
+            x0 = np.random.choice(self.positive_x, size=2, replace=False)
+            x1 = np.random.choice(list(self.negative_x) + [0], size=2, replace=False)
+
+            if p[0] == p[1]:
+
+                if x0[0] == x0[1] and x1[0] == x1[1]:
+                    pass
+
+                else:
+                    break
+
+            elif p[0] == 1 - p[1]:
+
+                if x0[0] == x1[1] and x1[0] == x0[0]:
+                    pass
+
+                else:
+                    break
+
+            else:
+                break
 
         self.assign_values(p=p, x0=x0, x1=x1)
 
     def assign_values(self, p, x0, x1):
+
         idx = np.random.permutation(2)
         for i, side in zip(idx, self.sides):
             self.stimuli_parameters["{}_p".format(side)] = p[i]
@@ -104,6 +108,7 @@ def main():
     gain_expectation = []
 
     for i in range(10000):
+
         sf = StimuliFinder()
         sp = sf.find()
         gain_expectation.append(
@@ -117,5 +122,32 @@ def main():
     print("Gain expectation in average:", np.mean(gain_expectation))
 
 
+def test_stimuli(win):
+
+    sf = StimuliFinder()
+    sp = sf.find()
+
+    win.current_step = "show_stimuli"
+    win.set_parameters(sp)
+
+    # Just tap 'enter' to generate a new stimuli
+    while True:
+        a = input()
+        if a == "quit()":
+            break
+        else:
+            sp = sf.find()
+            win.set_parameters(sp)
+            win.show_stimuli()
+
 if __name__ == "__main__":
-    main()
+
+    app = QApplication(sys.argv)
+
+    window = GameWindow(queue=Queue(), standalone=True)
+    window.show()
+
+    pro = Thread(target=test_stimuli, args=(window, ))
+    pro.start()
+
+    sys.exit(app.exec_())
