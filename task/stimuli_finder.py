@@ -211,7 +211,7 @@ def main_visual():
 
     app = QApplication(sys.argv)
 
-    window = GameWindow(queue=Queue(), standalone=True)
+    window = GameWindow(queue=Queue(), textures_folder="../textures", standalone=True)
     window.show()
 
     pro = Thread(target=test_stimuli, args=(window,))
