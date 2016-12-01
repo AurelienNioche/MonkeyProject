@@ -1,4 +1,5 @@
 import numpy as np
+from os import path
 from task.save import Database
 
 
@@ -42,6 +43,9 @@ class DataGetter(object):
                 self.db.read_column(table_name="summary", column_name='session_table',
                                     monkey=self.monkey, date=date)
 
+            if type(session_table) == list:
+                session_table = session_table[-1]
+
             error += \
                 self.db.read_column(table_name=session_table, column_name="error")
 
@@ -60,8 +64,9 @@ class DataGetter(object):
         return error, p, x0, x1, choice
 
     def get_dates(self):
-
-        all_dates = self.db.read_column(table_name="summary", column_name='date', monkey=self.monkey)
+        assert self.db.table_exists("summary")
+        all_dates = np.unique(self.db.read_column(table_name="summary", column_name='date', monkey=self.monkey))
+        assert len(all_dates)
         dates = self.select_posterior_dates(all_dates)
 
         print("N dates", len(dates))
@@ -72,8 +77,8 @@ class DataGetter(object):
     def filter_valid_trials(error, p, x0, x1, choice):
 
         new_p = {"left": [], "right": []}
-        new_x0 = new_p.copy()
-        new_x1 = new_p.copy()
+        new_x0 = {"left": [], "right": []}
+        new_x1 = {"left": [], "right": []}
         new_choice = []
 
         valid_trials = np.where(np.asarray(error) == "None")[0]
@@ -112,17 +117,23 @@ class ProgressAnalyst(object):
 
     def run(self):
 
-        self.analyse_fixed_p()
-        self.analyse_fixed_x()
+        self.analyse_p_fixed_x0_negative()
+        self.analyse_p_fixed_x0_positive()
+        self.analyse_p_fixed_x0_positive_xs_negative()
+        self.analyse_fixed_negative_x0()
+        self.analyse_fixed_positive_x0()
 
-    def analyse_fixed_p(self):
+    def analyse_p_fixed_x0_negative(self):
 
         n = 0
         hit = 0
 
+        assert len(self.choice) == len(self.trials_id)
+
         for i in self.trials_id:
 
-            if self.p["left"][i] == self.p["right"][i] and self.x1["left"][i] == self.x1["right"][i]:
+            if self.p["left"][i] == self.p["right"][i] and self.x1["left"][i] == self.x1["right"][i] \
+                    and self.x0["left"][i] < 0 and self.x0["right"][i] < 0:
 
                 n += 1
 
@@ -130,23 +141,82 @@ class ProgressAnalyst(object):
 
                     hit += 1
 
-        print("Success rate with fixed p: ", hit/n)
+        print("Success rate with fixed p, negative x0: ", hit/n)
 
-    def analyse_fixed_x(self):
+    def analyse_p_fixed_x0_positive(self):
+
+        n = 0
+        hit = 0
+
+        assert len(self.choice) == len(self.trials_id)
+
+        for i in self.trials_id:
+
+            if self.p["left"][i] == self.p["right"][i] and self.x1["left"][i] == self.x1["right"][i] \
+                    and self.x0["left"][i] > 0 and self.x0["right"][i] > 0:
+
+                n += 1
+
+                if (self.choice[i] == "left") == (self.x0["left"][i] > self.x0["right"][i]):
+
+                    hit += 1
+
+        print("Success rate with fixed p, positive x0: ", hit/n)
+
+    def analyse_p_fixed_x0_positive_xs_negative(self):
+
+        n = 0
+        hit = 0
+
+        assert len(self.choice) == len(self.trials_id)
+
+        for i in self.trials_id:
+
+            if self.p["left"][i] == self.p["right"][i] and self.x1["left"][i] == self.x1["right"][i] \
+                    and (self.x0["left"][i] > 0 > self.x0["right"][i] or
+                         self.x0["left"][i] < 0 < self.x0["right"][i]):
+
+                n += 1
+
+                if (self.choice[i] == "left") == (self.x0["left"][i] > self.x0["right"][i]):
+
+                    hit += 1
+
+        print("Success rate with fixed p, positive vs negative x0: ", hit/n)
+
+    def analyse_fixed_positive_x0(self):
 
         n = 0
         hit = 0
 
         for i in self.trials_id:
 
-            if self.x0["left"][i] == self.x0["right"][i] and self.x1["left"][i] == self.x1["right"][i]:
+            if self.x0["left"][i] == self.x0["right"][i] and self.x1["left"][i] == self.x1["right"][i] and \
+                    self.x0["left"][i] > 0:
 
                 n += 1
 
                 if (self.choice[i] == "left") == (self.p["left"][i] > self.p["right"][i]):
                     hit += 1
 
-        print("Success rate with fixed x: ", hit / n)
+        print("Success rate with fixed x, positive x0: ", hit / n)
+
+    def analyse_fixed_negative_x0(self):
+
+        n = 0
+        hit = 0
+
+        for i in self.trials_id:
+
+            if self.x0["left"][i] == self.x0["right"][i] and self.x1["left"][i] == self.x1["right"][i] and \
+                    self.x0["left"][i] < 0:
+
+                n += 1
+
+                if (self.choice[i] == "left") == (self.p["left"][i] < self.p["right"][i]):
+                    hit += 1
+
+        print("Success rate with fixed x, negative x0: ", hit / n)
 
 
 def main():
@@ -155,15 +225,25 @@ def main():
     database_folder = "../../results"
     database_name = "results_sequential"
 
-    for monkey in ["Havane, Gladys"]:
+    assert path.exists("{}/{}.db".format(database_folder, database_name))
+
+    for monkey in ["Havane", "Gladys"]:
+
+        print("Analysis for {}".format(monkey))
+        print()
 
         dg = DataGetter(database_folder=database_folder, database_name=database_name,
                         monkey=monkey, starting_point=starting_point)
 
         p, x0, x1, choice = dg.run()
 
+        print()
         pa = ProgressAnalyst(p=p, x0=x0, x1=x1, choice=choice)
         pa.run()
+
+        print()
+        print("*" * 10)
+        print()
 
 
 if __name__ == "__main__":
