@@ -255,17 +255,17 @@ class Gauge(QWidget):
 
 class PieChart(QWidget):
 
-    textures_folder = "../textures"
-
-    def __init__(self, position):
+    def __init__(self, textures_folder, position):
 
         super().__init__()
+
+        self.textures_folder = textures_folder
+        self.position = position
 
         self.background_color = "white"
 
         self.quantity_possibilities = np.arange(-4, 5, 1)
 
-        self.position = position
         self.quantities = [0, 0]
 
         self.p = 0
@@ -394,11 +394,13 @@ class PieChart(QWidget):
 
 class GameWindow(QMainWindow):
 
-    def __init__(self, queue, standalone=False):
+    def __init__(self, queue, textures_folder, standalone=False):
 
         QWidget.__init__(self)
 
         self.queue = queue
+        self.standalone = standalone
+        self.textures_folder = textures_folder
 
         self.fake_grip_value = None
         self.fake_grip_queue = None
@@ -412,8 +414,6 @@ class GameWindow(QMainWindow):
 
         self.control_modifier = False
         self.cursor_visible = True
-
-        self.standalone = standalone
 
         self.parameters = {
             "left_p": 0.25,
@@ -445,9 +445,9 @@ class GameWindow(QMainWindow):
 
         self.setGeometry(100, 100, width, height)
 
-        self.frames["left"] = PieChart(position="left")
+        self.frames["left"] = PieChart(position="left", textures_folder=self.textures_folder)
         self.frames["gauge"] = Gauge()
-        self.frames["right"] = PieChart(position="right")
+        self.frames["right"] = PieChart(position="right", textures_folder=self.textures_folder)
         self.frames["black_screen"] = Frame(background_color="black")
         self.frames["pause"] = Pause()
 
@@ -756,15 +756,16 @@ class GameWindow(QMainWindow):
 
 # ------------------------------------------------ MAIN ------------------------------------------------ #
 
-if __name__ == "__main__":
+
+def main():
 
     q = Queue()
 
     app = QApplication(sys.argv)
 
-    PieChart.textures_folder = "../textures"
+    textures_folder = "../textures"
 
-    window = GameWindow(queue=q, standalone=True)
+    window = GameWindow(queue=q, textures_folder=textures_folder, standalone=True)
     window.show_stimuli()
     # window.show_choice(parameters=st_parameters, choice=ch)
     # window.show_results(parameters=st_parameters, choice=ch, dice_output=d)
@@ -777,3 +778,9 @@ if __name__ == "__main__":
     window.show()
 
     sys.exit(app.exec_())
+
+
+
+if __name__ == "__main__":
+
+    main()

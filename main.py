@@ -18,7 +18,7 @@ if __name__ == "__main__":
     graphic_queue = Queue()
 
     interface_window = Interface(queue=graphic_queue)
-    game_window = GameWindow(queue=graphic_queue)
+    game_window = GameWindow(queue=graphic_queue, textures_folder="textures")
 
     # Start process that will handle events
     experimentalist = Experimentalist(
