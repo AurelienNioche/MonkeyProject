@@ -140,8 +140,9 @@ class ProgressAnalyst(object):
                 if (self.choice[i] == "left") == (self.x0["left"][i] > self.x0["right"][i]):
 
                     hit += 1
+        if n:
 
-        print("Success rate with fixed p, negative x0: ", hit/n)
+            print("Success rate with fixed p, negative x0: {:.2f}".format(hit / n))
 
     def analyse_p_fixed_x0_positive(self):
 
@@ -160,8 +161,8 @@ class ProgressAnalyst(object):
                 if (self.choice[i] == "left") == (self.x0["left"][i] > self.x0["right"][i]):
 
                     hit += 1
-
-        print("Success rate with fixed p, positive x0: ", hit/n)
+        if n:
+            print("Success rate with fixed p, positive x0: {:.2f}".format(hit / n))
 
     def analyse_p_fixed_x0_positive_xs_negative(self):
 
@@ -182,7 +183,9 @@ class ProgressAnalyst(object):
 
                     hit += 1
 
-        print("Success rate with fixed p, positive vs negative x0: ", hit/n)
+        if n:
+
+            print("Success rate with fixed p, positive vs negative x0: {:.2f}".format(hit / n))
 
     def analyse_fixed_positive_x0(self):
 
@@ -198,8 +201,8 @@ class ProgressAnalyst(object):
 
                 if (self.choice[i] == "left") == (self.p["left"][i] > self.p["right"][i]):
                     hit += 1
-
-        print("Success rate with fixed x, positive x0: ", hit / n)
+        if n:
+            print("Success rate with fixed x, positive x0: {:.2f}".format(hit / n))
 
     def analyse_fixed_negative_x0(self):
 
@@ -216,7 +219,8 @@ class ProgressAnalyst(object):
                 if (self.choice[i] == "left") == (self.p["left"][i] < self.p["right"][i]):
                     hit += 1
 
-        print("Success rate with fixed x, negative x0: ", hit / n)
+        if n:
+            print("Success rate with fixed x, negative x0: {:.2f}".format(hit / n))
 
 
 def main():
