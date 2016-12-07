@@ -117,13 +117,13 @@ class ProgressAnalyst(object):
 
     def run(self):
 
-        self.analyse_p_fixed_x0_negative()
-        self.analyse_p_fixed_x0_positive()
-        self.analyse_p_fixed_x0_positive_xs_negative()
-        self.analyse_fixed_negative_x0()
-        self.analyse_fixed_positive_x0()
+        self.analyse_p_identical_x0_negative()
+        self.analyse_p_identical_x0_positive()
+        self.analyse_p_identical_x0_positive_xs_negative()
+        self.analyse_identical_negative_x0()
+        self.analyse_identical_positive_x0()
 
-    def analyse_p_fixed_x0_negative(self):
+    def analyse_p_identical_x0_negative(self):
 
         n = 0
         hit = 0
@@ -142,9 +142,9 @@ class ProgressAnalyst(object):
                     hit += 1
         if n:
 
-            print("Success rate with fixed p, negative x0: {:.2f}".format(hit / n))
+            print("Success rate with identical p, negative x0: {:.2f}".format(hit / n))
 
-    def analyse_p_fixed_x0_positive(self):
+    def analyse_p_identical_x0_positive(self):
 
         n = 0
         hit = 0
@@ -162,9 +162,9 @@ class ProgressAnalyst(object):
 
                     hit += 1
         if n:
-            print("Success rate with fixed p, positive x0: {:.2f}".format(hit / n))
+            print("Success rate with identical p, positive x0: {:.2f}".format(hit / n))
 
-    def analyse_p_fixed_x0_positive_xs_negative(self):
+    def analyse_p_identical_x0_positive_xs_negative(self):
 
         n = 0
         hit = 0
@@ -185,9 +185,9 @@ class ProgressAnalyst(object):
 
         if n:
 
-            print("Success rate with fixed p, positive vs negative x0: {:.2f}".format(hit / n))
+            print("Success rate with identical p, positive vs negative x0: {:.2f}".format(hit / n))
 
-    def analyse_fixed_positive_x0(self):
+    def analyse_identical_positive_x0(self):
 
         n = 0
         hit = 0
@@ -202,9 +202,9 @@ class ProgressAnalyst(object):
                 if (self.choice[i] == "left") == (self.p["left"][i] > self.p["right"][i]):
                     hit += 1
         if n:
-            print("Success rate with fixed x, positive x0: {:.2f}".format(hit / n))
+            print("Success rate with identical x, positive x0: {:.2f}".format(hit / n))
 
-    def analyse_fixed_negative_x0(self):
+    def analyse_identical_negative_x0(self):
 
         n = 0
         hit = 0
@@ -220,7 +220,7 @@ class ProgressAnalyst(object):
                     hit += 1
 
         if n:
-            print("Success rate with fixed x, negative x0: {:.2f}".format(hit / n))
+            print("Success rate with identical x, negative x0: {:.2f}".format(hit / n))
 
 
 def main():
