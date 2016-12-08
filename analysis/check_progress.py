@@ -1,5 +1,6 @@
-import numpy as np
+from pylab import np, plt
 from os import path
+from collections import OrderedDict
 from task.save import Database
 
 
@@ -29,6 +30,17 @@ class DataGetter(object):
                         new_dates.append(str_date)
         return new_dates
 
+    def get_dates(self):
+
+        assert self.db.table_exists("summary")
+        all_dates = np.unique(self.db.read_column(table_name="summary", column_name='date', monkey=self.monkey))
+        assert len(all_dates)
+        dates = self.select_posterior_dates(all_dates)
+
+        print("N dates", len(dates))
+
+        return dates
+
     def get_errors_p_x0_x1_choices_from_db(self, dates):
 
         p = {"left": [], "right": []}
@@ -37,8 +49,11 @@ class DataGetter(object):
         error = []
         choice = []
 
-        for date in dates:
+        session = []
 
+        for idx, date in enumerate(sorted(dates)):
+
+            print("Dates: ", dates)
             session_table = \
                 self.db.read_column(table_name="summary", column_name='session_table',
                                     monkey=self.monkey, date=date)
@@ -46,11 +61,14 @@ class DataGetter(object):
             if type(session_table) == list:
                 session_table = session_table[-1]
 
-            error += \
-                self.db.read_column(table_name=session_table, column_name="error")
+            error_session = self.db.read_column(table_name=session_table, column_name="error")
+            choice_session = self.db.read_column(table_name=session_table, column_name="choice")
 
-            choice += \
-                self.db.read_column(table_name=session_table, column_name="choice")
+            error += error_session
+
+            choice += choice_session
+
+            session += [idx, ] * len(error_session)
 
             for side in ["left", "right"]:
 
@@ -61,30 +79,23 @@ class DataGetter(object):
                 x1[side] += \
                     [int(i) for i in self.db.read_column(table_name=session_table, column_name='{}_x1'.format(side))]
 
-        return error, p, x0, x1, choice
-
-    def get_dates(self):
-        assert self.db.table_exists("summary")
-        all_dates = np.unique(self.db.read_column(table_name="summary", column_name='date', monkey=self.monkey))
-        assert len(all_dates)
-        dates = self.select_posterior_dates(all_dates)
-
-        print("N dates", len(dates))
-
-        return dates
+        return error, p, x0, x1, choice, session
 
     @staticmethod
-    def filter_valid_trials(error, p, x0, x1, choice):
+    def filter_valid_trials(error, p, x0, x1, choice, session):
 
         new_p = {"left": [], "right": []}
         new_x0 = {"left": [], "right": []}
         new_x1 = {"left": [], "right": []}
         new_choice = []
+        new_session = []
 
         valid_trials = np.where(np.asarray(error) == "None")[0]
         print("N valid trials:", len(valid_trials))
 
         for valid_idx in valid_trials:
+
+            new_session.append(session[valid_idx])
 
             new_choice.append(choice[valid_idx])
 
@@ -94,18 +105,33 @@ class DataGetter(object):
                 new_x0[side].append(x0[side][valid_idx])
                 new_x1[side].append(x1[side][valid_idx])
 
-        return new_p, new_x0, new_x1, new_choice
+        for side in ["left", "right"]:
+            new_p[side] = np.asarray(new_p[side])
+            new_x0[side] = np.asarray(new_x0[side])
+            new_x1[side] = np.asarray(new_x1[side])
+
+        new_choice = np.asarray(new_choice)
+        new_session = np.asarray(new_session)
+        return new_p, new_x0, new_x1, new_choice, new_session
 
     def run(self):
 
         dates = self.get_dates()
-        error, p, x0, x1, choice = self.get_errors_p_x0_x1_choices_from_db(dates)
-        p, x0, x1, choice = self.filter_valid_trials(error, p, x0, x1, choice)
+        error, p, x0, x1, choice, session = self.get_errors_p_x0_x1_choices_from_db(dates)
+        p, x0, x1, choice, session = self.filter_valid_trials(error, p, x0, x1, choice, session)
 
-        return p, x0, x1, choice
+        return p, x0, x1, choice, session
 
 
 class ProgressAnalyst(object):
+
+    control_conditions = [
+        "identical p, negative x0",
+        "identical p, positive x0",
+        "identical p, positive vs negative x0",
+        "identical x, negative x0",
+        "identical x, positive x0"
+    ]
 
     def __init__(self, p, x0, x1, choice):
 
@@ -115,15 +141,15 @@ class ProgressAnalyst(object):
         self.choice = choice
         self.trials_id = np.arange(len(self.p["left"]))
 
-    def run(self):
+        self.dict_functions = dict()
+        for key in self.control_conditions:
+            self.dict_functions[key] = getattr(self, 'analyse_{}'.format(key.replace(" ", "_").replace(",", "")))
 
-        self.analyse_p_identical_x0_negative()
-        self.analyse_p_identical_x0_positive()
-        self.analyse_p_identical_x0_positive_xs_negative()
-        self.analyse_identical_negative_x0()
-        self.analyse_identical_positive_x0()
+    def analyse(self, condition):
 
-    def analyse_p_identical_x0_negative(self):
+        return self.dict_functions[condition]()
+
+    def analyse_identical_p_negative_x0(self):
 
         n = 0
         hit = 0
@@ -143,8 +169,9 @@ class ProgressAnalyst(object):
         if n:
 
             print("Success rate with identical p, negative x0: {:.2f}".format(hit / n))
+            return hit / n
 
-    def analyse_p_identical_x0_positive(self):
+    def analyse_identical_p_positive_x0(self):
 
         n = 0
         hit = 0
@@ -163,8 +190,9 @@ class ProgressAnalyst(object):
                     hit += 1
         if n:
             print("Success rate with identical p, positive x0: {:.2f}".format(hit / n))
+            return hit / n
 
-    def analyse_p_identical_x0_positive_xs_negative(self):
+    def analyse_identical_p_positive_vs_negative_x0(self):
 
         n = 0
         hit = 0
@@ -186,8 +214,9 @@ class ProgressAnalyst(object):
         if n:
 
             print("Success rate with identical p, positive vs negative x0: {:.2f}".format(hit / n))
+            return hit / n
 
-    def analyse_identical_positive_x0(self):
+    def analyse_identical_x_positive_x0(self):
 
         n = 0
         hit = 0
@@ -203,8 +232,9 @@ class ProgressAnalyst(object):
                     hit += 1
         if n:
             print("Success rate with identical x, positive x0: {:.2f}".format(hit / n))
+            return hit / n
 
-    def analyse_identical_negative_x0(self):
+    def analyse_identical_x_negative_x0(self):
 
         n = 0
         hit = 0
@@ -221,6 +251,7 @@ class ProgressAnalyst(object):
 
         if n:
             print("Success rate with identical x, negative x0: {:.2f}".format(hit / n))
+            return hit / n
 
 
 def main():
@@ -239,15 +270,56 @@ def main():
         dg = DataGetter(database_folder=database_folder, database_name=database_name,
                         monkey=monkey, starting_point=starting_point)
 
-        p, x0, x1, choice = dg.run()
+        p, x0, x1, choice, session = dg.run()
 
-        print()
-        pa = ProgressAnalyst(p=p, x0=x0, x1=x1, choice=choice)
-        pa.run()
+        progress = OrderedDict()
 
-        print()
-        print("*" * 10)
-        print()
+        for key in ProgressAnalyst.control_conditions:
+            progress[key] = []
+
+        print(progress)
+        for session_id in np.unique(session):
+
+            session_p = dict()
+            session_x0 = dict()
+            session_x1 = dict()
+
+            for side in ["left", "right"]:
+
+                session_p[side] = p[side][session == session_id]
+                session_x0[side] = x0[side][session == session_id]
+                session_x1[side] = x1[side][session == session_id]
+
+            session_choice = choice[session == session_id]
+
+            print()
+            pa = ProgressAnalyst(p=session_p, x0=session_x0, x1=session_x1, choice=session_choice)
+            for key in progress:
+                progress[key].append(pa.analyse(key))
+
+            print()
+            print("*" * 10)
+            print()
+
+        fig = plt.figure(figsize=(25, 12))
+        ax = plt.subplot(111)
+
+        for key in progress:
+
+            plt.plot(np.unique(session) + 1, progress[key], label=key, linewidth=2)
+            plt.xticks(np.arange(len(np.unique(session))) + 1)
+            plt.ylim([-0.01, 1.01])
+            plt.ylabel("Success rate")
+            plt.xlabel("Day")
+
+        box = ax.get_position()
+        ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+
+        ax.set_title(monkey)
+        ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+        plt.savefig(path.expanduser("~/Desktop/{}_progress.pdf".format(monkey)))
+        plt.close()
+
 
 
 if __name__ == "__main__":
