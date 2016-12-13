@@ -33,14 +33,14 @@ class StimuliFinder(object):
 
         self.conditions = OrderedDict(
             [
-                (self.p_fixed_x0_positive, 0.05),
-                (self.p_fixed_x0_negative, 0.05),
-                (self.p_fixed_x0_negative_vs_positive, 0.05),
-                (self.x_fixed, 0.05),
-                (self.congruent_negative, 0.2),
-                (self.congruent_positive, 0.2),
-                (self.incongruent_positive, 0.2),
-                (self.incongruent_negative, 0.2)
+                (self.p_fixed_x0_positive, 0.25),
+                (self.p_fixed_x0_negative, 0.25),
+                (self.p_fixed_x0_negative_vs_positive, 0.25),
+                (self.x_fixed, 0.25),
+                (self.congruent_negative, 0),
+                (self.congruent_positive, 0),
+                (self.incongruent_positive, 0),
+                (self.incongruent_negative, 0)
             ]
         )
 

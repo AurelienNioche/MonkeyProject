@@ -22,29 +22,31 @@ class ConnectionToRaspi(object):
 
     def connect(self):
 
-        print("Setting up the raspi, please be patient!")
-        print("Trying to connect to the raspi...")
+        print("ConnectionToRaspi: Setting up the raspi, please be patient!")
+        print("ConnectionToRaspi: Trying to connect to the raspi...")
 
         while True:
 
             self.c = pxssh.pxssh()
+            self.c.force_password = True
 
             try:
-                connect_to_pi = self.c.login(self.raspi_address, "pi", "raspberry", login_timeout=2)
+                print("ConnectionToRaspi: Try to login.")
+                connect_to_pi = self.c.login(self.raspi_address, "pi", "raspberry", login_timeout=1)
                 if connect_to_pi:
-                    print("Successfully connected to the raspi.")
+                    print("ConnectionToRaspi: Successfully connected to the raspi.")
                     break
 
             except Exception as e:
 
-                print("Error during connection to raspi:"), e
-                print("Trying again to connect...")
-                Event().wait(2)
+                print("ConnectionToRaspi: Error during connection to raspi:", e)
+                print("ConnectionToRaspi: Trying again to connect...")
+                Event().wait(1)
 
         # Launch the server program on Raspberry Pi.
         self.c.sendline("python ~/Desktop/raspi.py")
 
-        print("Server launched.")
+        print("ConnectionToRaspi: Server launched.")
         self.connected = 1
 
     def is_connected(self):
@@ -56,7 +58,7 @@ class ConnectionToRaspi(object):
         if self.connected:
             self.c.sendline("\x03")
             self.c.prompt(timeout=1)
-            print(self.c.before)
+            print("ConnectionToRaspi:", self.c.before)
             self.connected = 0
             self.c.logout()
             self.c.close()

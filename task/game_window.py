@@ -723,6 +723,10 @@ class GameWindow(QMainWindow):
                 self.fake_grip_queue.put(1)
                 self.fake_grip_value.value = 1
 
+        elif self.control_modifier and event.key() == Qt.Key_F:
+
+            self.showFullScreen()
+
     def keyReleaseEvent(self, event):
 
         if event.key() == Qt.Key_Control:
@@ -738,7 +742,7 @@ class GameWindow(QMainWindow):
 
     def resizeEvent(self, event):
 
-        if not self.isFullScreen() and not self.cursor_visible:
+        if not self.cursor_visible:
 
             self.unsetCursor()
             self.cursor_visible = True
