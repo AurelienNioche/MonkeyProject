@@ -14,9 +14,9 @@ class Pump:
     def launch(self, open_time):
 
         a = time()
-        self.ser.write("S11")
+        self.ser.write("S11".encode())
         Event().wait(timeout=open_time/1000.)
-        self.ser.write("S10")
+        self.ser.write("S10".encode())
         b = time()
         print("Open time of pump:", b-a)
 

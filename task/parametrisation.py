@@ -37,7 +37,7 @@ class ParametersContainer(QWidget):
         self.parameters["valve_opening_time"] = \
             Parameter(
                 text="Valve opening time (ms)", initial_value=param["valve_opening_time"],
-                value_range=[1, 10000])
+                value_range=[1, 9999])  # Be careful of not having a number > 9999 or change raspi program
 
         self.parameters["fixation_time"] = \
             MinMaxParameter(

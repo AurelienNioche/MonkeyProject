@@ -89,8 +89,9 @@ class ValveManager(QtCore.QThread):
             v = self.valve_queue.get()
             if not self.shutdown.is_set():
 
-                self.client.socket.send("1{}".format(v).encode())
+                self.client.socket.send("{:4d}".format(v).encode())
 
+        # self.client.socket.send("")
         self.client.close()
 
         print("ValveManager: DEAD.")

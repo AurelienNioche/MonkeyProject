@@ -5,7 +5,7 @@ from threading import Timer
 from collections import OrderedDict
 from task.save import Database
 from datetime import date
-from task.ressources import GripManager, ValveManager, ConnectionToRaspi, GripTracker, SoundManager
+from task.ressources import GripManager, ValveManager, GripTracker, SoundManager
 from task.stimuli_finder import StimuliFinder
 from time import time
 
