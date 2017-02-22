@@ -117,6 +117,8 @@ class Interface(QWidget):
         self.parameters = None
         self.error = 0
 
+        self.already_asked_for_saving_parameters = 0
+
         self.initialize()
 
     def initialize(self):
@@ -196,23 +198,28 @@ class Interface(QWidget):
 
     def closeEvent(self, event):
 
-        with open("parameters/parameters.json") as param_file:
-            old_param = json.load(param_file)
+        if not self.already_asked_for_saving_parameters:
 
-        if old_param != self.parameters:
+            with open("parameters/parameters.json") as param_file:
+                old_param = json.load(param_file)
 
-            button_reply = \
-                QMessageBox.question(self, '', "Do you want to save the change in parameters?",
-                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-            if button_reply == QMessageBox.Yes:
-                with open("parameters/parameters.json", "w") as param_file:
-                    json.dump(self.parameters, param_file)
-                print('Interface: parameters saved.')
-            else:
-                print('Interface: saving of parameters aborted.')
+            if old_param != self.parameters:
 
-        print("Interface: Close window")
-        self.queue.put(("interface_close_window",))
+                button_reply = \
+                    QMessageBox.question(self, '', "Do you want to save the change in parameters?",
+                                         QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+                if button_reply == QMessageBox.Yes:
+                    with open("parameters/parameters.json", "w") as param_file:
+                        json.dump(self.parameters, param_file)
+                    print('Interface: parameters saved.')
+                else:
+                    print('Interface: saving of parameters aborted.')
+
+            print("Interface: Close window")
+            self.queue.put(("interface_close_window",))
+
+            self.already_asked_for_saving_parameters = 1
+
 
 if __name__ == "__main__":
 

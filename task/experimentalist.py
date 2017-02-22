@@ -167,6 +167,8 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
     def end_program(self):
 
+        print("Experimentalist: end_program")
+
         if self.current_saving.is_set():
             self.data_saved.wait()
 
@@ -179,7 +181,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
         self.grip_manager.end()
         self.valve_manager.end()
         self.sound_manager.end()
-        # self.connection_to_raspi.end()
+
         self.game_window.standalone = True
         self.command(self.game_window.close)
         self.command(self.interface_window.close)

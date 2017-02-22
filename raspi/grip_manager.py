@@ -28,13 +28,15 @@ def main():
     port = 1556  # Arbitrary non-privileged port
 
     try:
+
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+
             s.bind((host, port))
             s.listen(1)
             while True:
 
                 conn, addr = s.accept()
-                detector_state = None
+                detector_state = 0
 
                 with conn:
 
@@ -52,7 +54,8 @@ def main():
                         except socket.error as exc:
                             print("Caught exception socket.error: {}".format(exc))
                             break
-    except SystemExit:
+
+    except (SystemExit, KeyboardInterrupt):
 
         print("Exit")
         grip.close()

@@ -40,14 +40,14 @@ def main():
                 with conn:
                     print('Connected by', add)
                     while True:
-                        data = conn.recv(1024)
+                        data = conn.recv(4)
                         if not data:
                             break
                         else:
                             aperture = int(data)
                             pump.launch(aperture)
 
-    except SystemExit:
+    except (KeyboardInterrupt, SystemExit):
         print("Exit")
         pump.close()
 
