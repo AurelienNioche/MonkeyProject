@@ -35,6 +35,7 @@ def main():
             s.listen(1)
             while True:
 
+                print("Waiting for connection...")
                 conn, addr = s.accept()
                 detector_state = 0
 

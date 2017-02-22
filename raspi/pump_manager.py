@@ -36,11 +36,14 @@ def main():
             s.bind((host, port))
             s.listen(1)
             while True:
+
+                print("Waiting for connection...")
                 conn, add = s.accept()
                 with conn:
                     print('Connected by', add)
                     while True:
                         data = conn.recv(4)
+                        print("Received:", data)
                         if not data:
                             break
                         else:
