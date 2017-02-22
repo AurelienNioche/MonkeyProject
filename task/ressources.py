@@ -3,65 +3,7 @@ from multiprocessing import Event, Queue
 from PyQt5 import QtCore
 import socket
 import errno
-from pexpect import pxssh
 import subprocess
-
-
-# --------------------------------------------------------------------------------------------------------------- #
-# ------------------------------------- CONNECTION TO RASPBERRY PI ---------------------------------------------- #
-# --------------------------------------------------------------------------------------------------------------- #
-
-
-class ConnectionToRaspi(object):
-
-    def __init__(self, raspi_address='169.254.162.142'):
-
-        self.connected = 0
-        self.raspi_address = raspi_address
-        self.c = None
-
-    def connect(self):
-
-        print("ConnectionToRaspi: Setting up the raspi, please be patient!")
-        print("ConnectionToRaspi: Trying to connect to the raspi...")
-
-        while True:
-
-            self.c = pxssh.pxssh()
-            self.c.force_password = True
-
-            try:
-                print("ConnectionToRaspi: Try to login.")
-                connect_to_pi = self.c.login(self.raspi_address, "pi", "raspberry", login_timeout=1)
-                if connect_to_pi:
-                    print("ConnectionToRaspi: Successfully connected to the raspi.")
-                    break
-
-            except Exception as e:
-
-                print("ConnectionToRaspi: Error during connection to raspi:", e)
-                print("ConnectionToRaspi: Trying again to connect...")
-                Event().wait(1)
-
-        # Launch the server program on Raspberry Pi.
-        self.c.sendline("python ~/Desktop/raspi.py")
-
-        print("ConnectionToRaspi: Server launched.")
-        self.connected = 1
-
-    def is_connected(self):
-
-        return self.connected
-
-    def end(self):
-
-        if self.connected:
-            self.c.sendline("\x03")
-            self.c.prompt(timeout=1)
-            print("ConnectionToRaspi:", self.c.before)
-            self.connected = 0
-            self.c.logout()
-            self.c.close()
 
 
 # --------------------------------------------------------------------------------------------------------------- #
@@ -89,14 +31,13 @@ class Client(object):
 
     def establish_connection(self):
 
-        error = 0
-
         while True:
 
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(1)
+
             try:
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.settimeout(1)
-                # sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
                 sock.connect((self.server_host, self.server_port))
                 break
 
@@ -105,10 +46,6 @@ class Client(object):
                 if e.errno == errno.ECONNREFUSED:
                     sock.close()
                 Event().wait(2)
-                error += 1
-        if error > 0:
-
-            print(self.function.capitalize() + ": Errors encountered but problems solved.")
 
         print(self.function.capitalize() + ": I'm connected.")
 
@@ -153,9 +90,7 @@ class ValveManager(QtCore.QThread):
             if not self.shutdown.is_set():
 
                 self.client.socket.send("1{}".format(v).encode())
-                # print "Valve opening time: ", v
 
-        self.client.socket.send("shut_up".encode())  # Send the raspi to shut_up and free GripManager
         self.client.close()
 
         print("ValveManager: DEAD.")
@@ -195,15 +130,11 @@ class GripManager(QtCore.QThread):
 
     def run(self):
 
-        # client = Client(function="listener", raspi_address=self.raspi_address)
-        #
-        # client.establish_connection()
-
         print("GripManger: Running.")
 
         while not self.shutdown.is_set():
 
-            response = self.client.socket.recv(255)
+            response = self.client.socket.recv(1)
             if response:
 
                 self.grip_value.value = int(response)
@@ -243,7 +174,7 @@ class SoundManager(QtCore.QThread):
         while not self.shutdown.is_set():
             sound = self.sound_queue.get()
             if not self.shutdown.is_set():
-                # print "Play sound for {}.".format(instruction)
+
                 print("Play sound for {} with SoundPlayer {}.".format(sound, i))
                 self.sound_threads[i].sound_queue.put(sound)
                 if i < self.n_sound_threads-1:
