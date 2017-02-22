@@ -32,7 +32,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
         # --------- PROCESS FOR GRIP AND VALVE --- #
 
-        self.connection_to_raspi = ConnectionToRaspi(raspi_address='169.254.162.142')
+        # self.connection_to_raspi = ConnectionToRaspi(raspi_address='169.254.162.142')
 
         self.grip_manager = GripManager(
             grip_value=self.grip_value, grip_queue=self.grip_queue)
@@ -179,7 +179,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
         self.grip_manager.end()
         self.valve_manager.end()
         self.sound_manager.end()
-        self.connection_to_raspi.end()
+        # self.connection_to_raspi.end()
         self.game_window.standalone = True
         self.command(self.game_window.close)
         self.command(self.interface_window.close)
@@ -194,11 +194,13 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
         if self.parameters["fake"]:
             self.game_window.track_fake_grip(queue=self.grip_queue, value=self.grip_value)
         else:
-            if not self.connection_to_raspi.is_connected():
-                self.connection_to_raspi.connect()
+            # if not self.connection_to_raspi.is_connected():
+            #     self.connection_to_raspi.connect()
             if not self.valve_manager.isRunning():
+                self.valve_manager.establish_connection()
                 self.valve_manager.start()
             if not self.grip_manager.isRunning():
+                self.grip_manager.establish_connection()
                 self.grip_manager.start()
 
         # Show 'pause screen' on game window

@@ -85,8 +85,7 @@ class Client(object):
 
         self.server_host = raspi_address
 
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.socket = self.establish_connection()
 
     def establish_connection(self):
 
@@ -95,15 +94,16 @@ class Client(object):
         while True:
 
             try:
-                self.sock.connect((self.server_host, self.server_port))
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(1)
+                # sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                sock.connect((self.server_host, self.server_port))
                 break
 
             except socket.error as e:
                 print(self.function.capitalize() + ": Error during socket connexion: ", e)
                 if e.errno == errno.ECONNREFUSED:
-                    self.sock.close()
-                    self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                    sock.close()
                 Event().wait(2)
                 error += 1
         if error > 0:
@@ -112,9 +112,13 @@ class Client(object):
 
         print(self.function.capitalize() + ": I'm connected.")
 
+        sock.settimeout(None)
+        
+        return sock
+
     def close(self):
 
-        self.sock.close()
+        self.socket.close()
 
 
 # --------------------------------------------------------------------------------------------------------------- #
@@ -133,11 +137,13 @@ class ValveManager(QtCore.QThread):
 
         self.shutdown = Event()
 
+        self.client = None
+
+    def establish_connection(self):
+
+        self.client = Client(function="speaker", raspi_address=self.raspi_address)
+
     def run(self):
-
-        client = Client(function="speaker", raspi_address=self.raspi_address)
-
-        client.establish_connection()
 
         print("ValveManager: Running.")
 
@@ -146,11 +152,11 @@ class ValveManager(QtCore.QThread):
             v = self.valve_queue.get()
             if not self.shutdown.is_set():
 
-                client.sock.send("1{}".format(v).encode())
+                self.client.socket.send("1{}".format(v).encode())
                 # print "Valve opening time: ", v
 
-        client.sock.send("shut_up".encode())  # Send the raspi to shut_up and free GripManager
-        client.close()
+        self.client.socket.send("shut_up".encode())  # Send the raspi to shut_up and free GripManager
+        self.client.close()
 
         print("ValveManager: DEAD.")
 
@@ -179,25 +185,31 @@ class GripManager(QtCore.QThread):
         self.grip_queue = grip_queue
         self.raspi_address = raspi_address
 
+        self.client = None
+
         self.shutdown = Event()
+
+    def establish_connection(self):
+
+        self.client = Client(function="listener", raspi_address=self.raspi_address)
 
     def run(self):
 
-        client = Client(function="listener", raspi_address=self.raspi_address)
-
-        client.establish_connection()
+        # client = Client(function="listener", raspi_address=self.raspi_address)
+        #
+        # client.establish_connection()
 
         print("GripManger: Running.")
 
         while not self.shutdown.is_set():
 
-            response = client.sock.recv(255)
+            response = self.client.socket.recv(255)
             if response:
 
                 self.grip_value.value = int(response)
                 self.grip_queue.put(int(response))
 
-        client.close()
+        self.client.close()
 
         print("GripManager: DEAD.")
 

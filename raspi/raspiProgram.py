@@ -215,4 +215,6 @@ class Listener(Server):
 
 if __name__ == "__main__":
 
-    Master()
+    while True:
+
+        Master()
