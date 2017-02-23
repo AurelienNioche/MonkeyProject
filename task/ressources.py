@@ -138,8 +138,10 @@ class GripManager(QtCore.QThread):
             response = self.client.socket.recv(1)
             if response:
 
+                if int(response) != self.grip_value.value:
+                    self.grip_queue.put(int(response))
+
                 self.grip_value.value = int(response)
-                self.grip_queue.put(int(response))
 
         self.client.close()
 

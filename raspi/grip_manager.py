@@ -37,7 +37,6 @@ def main():
 
                 print("Waiting for connection...")
                 conn, addr = s.accept()
-                detector_state = 0
 
                 with conn:
 
@@ -45,12 +44,8 @@ def main():
                     while True:
 
                         try:
-                            new_detector_state = grip.detect()
-
-                            if detector_state != new_detector_state:
-
-                                conn.send("{}".format(new_detector_state).encode())
-                                detector_state = new_detector_state
+                            detector_state = grip.detect()
+                            conn.send("{}".format(detector_state).encode())
 
                         except socket.error as exc:
                             print("Caught exception socket.error: {}".format(exc))
