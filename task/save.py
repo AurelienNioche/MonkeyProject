@@ -13,7 +13,7 @@ class Database(object):
 
         # Backup is a database format, using Sqlite3 management system
         self.database_folder = path.expanduser(param["database_folder"])
-        self.db_path = "{}/{}.db".format(self.database_folder, param["database_name"])
+        self.db_path = "{}/{}".format(self.database_folder, param["database_name"])
         self.table_name = None
         self.connexion = None
         self.cursor = None
