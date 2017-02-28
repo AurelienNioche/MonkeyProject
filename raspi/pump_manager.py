@@ -11,11 +11,13 @@ class Pump:
         self.serial_port = "/dev/ttyUSB0"
         self.ser = sr.Serial(self.serial_port)
 
+        self.timer = Event()
+
     def launch(self, open_time):
 
         a = time()
         self.ser.write("S11".encode())
-        Event().wait(timeout=open_time/1000.)
+        self.timer.wait(timeout=open_time/1000.)
         self.ser.write("S10".encode())
         b = time()
         print("Open time of pump:", b-a)
