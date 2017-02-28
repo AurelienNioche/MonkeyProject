@@ -1,15 +1,19 @@
 from sqlite3 import connect, OperationalError
 from os import path, mkdir
+import json
 
 
 class Database(object):
 
-    def __init__(self, database_folder="{}/../results".format(path.dirname(path.dirname(path.realpath(__file__)))),
-                 database_name="results_sequential"):
+    def __init__(self):
+
+        with open("parameters/where_to_save_results.json") as file:
+
+            param = json.load(file)
 
         # Backup is a database format, using Sqlite3 management system
-        self.database_folder = database_folder
-        self.db_path = "{}/{}.db".format(self.database_folder, database_name)
+        self.database_folder = param["database_folder"]
+        self.db_path = "{}/{}.db".format(self.database_folder, param["database_name"])
         self.table_name = None
         self.connexion = None
         self.cursor = None
