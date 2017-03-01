@@ -6,9 +6,9 @@ from task.save import Database
 
 class DataGetter(object):
 
-    def __init__(self, database_folder, database_name, monkey, starting_point):
+    def __init__(self, monkey, starting_point):
 
-        self.db = Database(database_folder=database_folder, database_name=database_name)
+        self.db = Database()
         self.monkey = monkey
         self.starting_point = starting_point
 
@@ -257,18 +257,14 @@ class ProgressAnalyst(object):
 def main():
 
     starting_point = "2016-08-11"
-    database_folder = "../../results"
     database_name = "results_sequential"
-
-    assert path.exists("{}/{}.db".format(database_folder, database_name))
 
     for monkey in ["Havane", "Gladys"]:
 
         print("Analysis for {}".format(monkey))
         print()
 
-        dg = DataGetter(database_folder=database_folder, database_name=database_name,
-                        monkey=monkey, starting_point=starting_point)
+        dg = DataGetter(monkey=monkey, starting_point=starting_point)
 
         p, x0, x1, choice, session = dg.run()
 

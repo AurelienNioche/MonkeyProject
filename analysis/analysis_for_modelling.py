@@ -31,7 +31,7 @@ class ArchetypeFinder(object):
 
     def __init__(self, database_folder, database_name, starting_point):
 
-        self.db = Database(database_folder=database_folder, database_name=database_name)
+        self.db = Database()
         self.monkey_reference = "Havane"
         self.starting_point = starting_point
 
