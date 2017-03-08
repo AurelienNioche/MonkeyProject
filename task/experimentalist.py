@@ -14,7 +14,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
     trigger = QtCore.pyqtSignal()
 
-    def __init__(self, game_window, interface_window, graphic_queue):
+    def __init__(self, game_window, interface_window, graphic_queue, rpi_ip_address):
 
         super(Experimentalist, self).__init__()
 
@@ -32,12 +32,10 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
         # --------- PROCESS FOR GRIP AND VALVE --- #
 
-        # self.connection_to_raspi = ConnectionToRaspi(raspi_address='169.254.162.142')
-
         self.grip_manager = GripManager(
-            grip_value=self.grip_value, grip_queue=self.grip_queue)
+            grip_value=self.grip_value, grip_queue=self.grip_queue, rpi_ip_address=rpi_ip_address)
 
-        self.valve_manager = ValveManager()
+        self.valve_manager = ValveManager(rpi_ip_address=rpi_ip_address)
 
         # -------- SOUND --------- #
 

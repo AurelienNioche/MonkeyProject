@@ -3,12 +3,18 @@ from multiprocessing import Queue
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtGui import QIcon
 import sys
+import json
 from task.game_window import GameWindow
 from task.interface import Interface
 from task.experimentalist import Experimentalist
 
 
 if __name__ == "__main__":
+
+    # Get IP address of the RPi
+    with open("parameters/raspberry_pi.json") as file:
+
+        rpi_ip_address = json.load(file)["ip_address"]
 
     # Start graphic processes
 
@@ -24,7 +30,8 @@ if __name__ == "__main__":
     experimentalist = Experimentalist(
         game_window=game_window,
         interface_window=interface_window,
-        graphic_queue=graphic_queue
+        graphic_queue=graphic_queue,
+        rpi_ip_address=rpi_ip_address
     )
 
     experimentalist.start()

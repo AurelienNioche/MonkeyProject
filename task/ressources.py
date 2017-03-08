@@ -13,7 +13,7 @@ import subprocess
 
 class Client(object):
 
-    def __init__(self, function, raspi_address):
+    def __init__(self, function, rpi_ip_address):
 
         self.function = function
 
@@ -25,7 +25,7 @@ class Client(object):
 
             self.server_port = 1556
 
-        self.server_host = raspi_address
+        self.server_host = rpi_ip_address
 
         self.socket = self.establish_connection()
 
@@ -65,20 +65,20 @@ class Client(object):
 
 class ValveManager(QtCore.QThread):
 
-    def __init__(self, raspi_address='169.254.162.142'):
+    def __init__(self, rpi_ip_address):
 
         super(ValveManager, self).__init__()
 
-        self.valve_queue = Queue()
-        self.raspi_address = raspi_address
+        self.rpi_ip_address = rpi_ip_address
 
+        self.valve_queue = Queue()
         self.shutdown = Event()
 
         self.client = None
 
     def establish_connection(self):
 
-        self.client = Client(function="speaker", raspi_address=self.raspi_address)
+        self.client = Client(function="speaker", rpi_ip_address=self.rpi_ip_address)
 
     def run(self):
 
@@ -113,13 +113,13 @@ class ValveManager(QtCore.QThread):
 
 class GripManager(QtCore.QThread):
 
-    def __init__(self, grip_value, grip_queue, raspi_address='169.254.162.142'):
+    def __init__(self, grip_value, grip_queue, rpi_ip_address):
 
         super(GripManager, self).__init__()
 
         self.grip_value = grip_value
         self.grip_queue = grip_queue
-        self.raspi_address = raspi_address
+        self.rpi_ip_address = rpi_ip_address
 
         self.client = None
 
@@ -127,7 +127,7 @@ class GripManager(QtCore.QThread):
 
     def establish_connection(self):
 
-        self.client = Client(function="listener", raspi_address=self.raspi_address)
+        self.client = Client(function="listener", rpi_ip_address=self.rpi_ip_address)
 
     def run(self):
 
