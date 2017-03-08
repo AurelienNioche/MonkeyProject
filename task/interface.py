@@ -114,7 +114,9 @@ class Interface(QWidget):
         # noinspection PyUnresolvedReferences
         self.push_button_run.clicked.connect(self.run)
 
-        self.parameters = None
+        with open("parameters/parameters.json") as param_file:
+            self.parameters = json.load(param_file)
+
         self.error = 0
 
         self.already_asked_for_saving_parameters = 0
@@ -204,6 +206,7 @@ class Interface(QWidget):
                 old_param = json.load(param_file)
 
             if old_param != self.parameters:
+                print(self.parameters)
 
                 button_reply = \
                     QMessageBox.question(self, '', "Do you want to save the change in parameters?",
