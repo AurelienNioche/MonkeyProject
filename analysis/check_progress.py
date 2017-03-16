@@ -257,7 +257,6 @@ class ProgressAnalyst(object):
 def main():
 
     starting_point = "2016-08-11"
-    database_name = "results_sequential"
 
     for monkey in ["Havane", "Gladys"]:
 
@@ -297,7 +296,7 @@ def main():
             print("*" * 10)
             print()
 
-        fig = plt.figure(figsize=(25, 12))
+        plt.figure(figsize=(25, 12))
         ax = plt.subplot(111)
 
         for key in progress:
@@ -315,7 +314,6 @@ def main():
         ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
         plt.savefig(path.expanduser("~/Desktop/{}_progress.pdf".format(monkey)))
         plt.close()
-
 
 
 if __name__ == "__main__":
