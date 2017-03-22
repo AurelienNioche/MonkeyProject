@@ -3,7 +3,8 @@ from datetime import date
 from multiprocessing import Queue, Value, Event
 from threading import Timer
 from time import time
-
+import json
+from os import path
 import numpy as np
 from PyQt5 import QtCore
 
@@ -17,7 +18,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
     trigger = QtCore.pyqtSignal()
 
-    def __init__(self, game_window, interface_window, graphic_queue, rpi_ip_address):
+    def __init__(self, game_window, interface_window, graphic_queue):
 
         super(Experimentalist, self).__init__()
 
@@ -34,6 +35,11 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
         )
 
         # --------- PROCESS FOR GRIP AND VALVE --- #
+
+        # Get IP address of the RPi
+        parameters_folder = path.abspath("{}/../parameters".format(path.dirname(path.abspath(__file__))))
+        with open("{}/raspberry_pi.json".format(parameters_folder)) as file:
+            rpi_ip_address = json.load(file)["ip_address"]
 
         self.grip_manager = GripManager(
             grip_value=self.grip_value, grip_queue=self.grip_queue, rpi_ip_address=rpi_ip_address)

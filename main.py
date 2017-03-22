@@ -16,11 +16,6 @@ if __name__ == "__main__":
     # Make a log of git status
     git_report()
 
-    # Get IP address of the RPi
-    with open("parameters/raspberry_pi.json") as file:
-
-        rpi_ip_address = json.load(file)["ip_address"]
-
     # Start graphic processes
 
     app = QApplication(sys.argv)
@@ -35,8 +30,7 @@ if __name__ == "__main__":
     experimentalist = Experimentalist(
         game_window=game_window,
         interface_window=interface_window,
-        graphic_queue=graphic_queue,
-        rpi_ip_address=rpi_ip_address
+        graphic_queue=graphic_queue
     )
 
     experimentalist.start()
