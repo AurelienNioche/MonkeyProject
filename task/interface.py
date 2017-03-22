@@ -5,7 +5,9 @@ from PyQt5.QtWidgets import QWidget, QGridLayout, QPushButton, QLabel, QMessageB
 from multiprocessing import Queue
 import sys
 import json
+
 from task.parametrisation import ParametersContainer
+from utils.utils import log
 
 
 class TrialCounter(QWidget):
@@ -154,7 +156,7 @@ class Interface(QWidget):
 
             self.push_button_run.setEnabled(False)
 
-            print("Interface: Run task.")
+            log("Interface: Run task.")
 
             # Communicate parameters through the queue
             self.queue.put(("interface_run", self.parameters))
@@ -181,7 +183,7 @@ class Interface(QWidget):
     def close_task(self):
 
         self.push_button_run.setEnabled(False)
-        print("Interface: Close task.")
+        log("Interface: Close task.")
 
         self.queue.put(("interface_close_task",))
 
@@ -206,7 +208,6 @@ class Interface(QWidget):
                 old_param = json.load(param_file)
 
             if old_param != self.parameters:
-                print(self.parameters)
 
                 button_reply = \
                     QMessageBox.question(self, '', "Do you want to save the change in parameters?",
@@ -214,11 +215,11 @@ class Interface(QWidget):
                 if button_reply == QMessageBox.Yes:
                     with open("parameters/parameters.json", "w") as param_file:
                         json.dump(self.parameters, param_file)
-                    print('Interface: parameters saved.')
+                    log('Interface: parameters saved.')
                 else:
-                    print('Interface: saving of parameters aborted.')
+                    log('Interface: saving of parameters aborted.')
 
-            print("Interface: Close window")
+            log("Interface: Close window")
             self.queue.put(("interface_close_window",))
 
             self.already_asked_for_saving_parameters = 1

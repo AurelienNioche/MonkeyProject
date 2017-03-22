@@ -1,11 +1,13 @@
-from pylab import plt, np
-from task.save import Database
-from os import path, mkdir
-from multiprocessing import Pool, cpu_count
 from itertools import product
-from scipy.stats import binom
-from scipy.optimize import curve_fit
+from multiprocessing import Pool, cpu_count
+from os import path, mkdir
+
 import ternary
+from pylab import plt, np
+from scipy.optimize import curve_fit
+from scipy.stats import binom
+
+from save.save import Database
 
 
 def select_posterior_dates(dates_list, starting_point):
@@ -29,7 +31,7 @@ def select_posterior_dates(dates_list, starting_point):
 
 class ArchetypeFinder(object):
 
-    def __init__(self, database_folder, database_name, starting_point):
+    def __init__(self, starting_point):
 
         self.db = Database()
         self.monkey_reference = "Havane"

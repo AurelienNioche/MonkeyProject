@@ -1,5 +1,5 @@
-from PyQt5.QtWidgets import QWidget, QGridLayout, QLabel, QLineEdit, \
-    QRadioButton, QCheckBox
+from PyQt5.QtWidgets import *
+from PyQt5.QtCore import *
 from collections import OrderedDict
 import json
 
@@ -72,6 +72,15 @@ class ParametersContainer(QWidget):
 
         self.parameters["monkey"] = \
             RadioParameter(text="Monkey", text_radio1="Havane", text_radio2="Gladys")
+
+        self.parameters["control_trials_proportion"] = \
+            SliderParameter(text="Proportion of control trials (%)", initial_value=param["control_trials_proportion"])
+
+        self.parameters["with_losses_proportion"] = \
+            SliderParameter(text="Proportion of trials with losses (%)", initial_value=param["with_losses_proportion"])
+
+        self.parameters["incongruent_proportion"] = \
+            SliderParameter(text="Proportion of 'incongruent' trials (%)", initial_value=param["incongruent_proportion"])
 
         self.parameters["save"] = \
             CheckParameter(text="Save results", checked=param["save"])
@@ -257,3 +266,35 @@ class CheckParameter(object):
 
         grid.addWidget(self.label, line, 0)
         grid.addWidget(self.check_box, line, 1)
+
+
+class SliderParameter(object):
+
+    def __init__(self, text, initial_value):
+
+        self.label = QLabel(text)
+
+        self.string_value = QLabel(str(initial_value))
+
+        self.slider = QSlider(Qt.Horizontal)
+        self.slider.setMinimum(0)
+        self.slider.setMaximum(100 // 5)
+        self.slider.setValue(50 // 5)
+        self.slider.valueChanged.connect(self.change_value)
+
+    def change_value(self):
+
+        value = self.slider.value()
+        self.string_value.setText(str(value*5))
+
+    def get_value(self):
+
+        return int(self.string_value.text())
+
+    def add_to_grid(self, grid, line):
+
+        grid.addWidget(self.label, line, 0)
+        grid.addWidget(self.slider, line, 1)
+        grid.addWidget(self.string_value, line, 3)
+
+

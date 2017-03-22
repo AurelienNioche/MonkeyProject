@@ -1,13 +1,16 @@
-from PyQt5 import QtCore
-from multiprocessing import Queue, Value, Event
-import numpy as np
-from threading import Timer
 from collections import OrderedDict
-from task.save import Database
 from datetime import date
+from multiprocessing import Queue, Value, Event
+from threading import Timer
+from time import time
+
+import numpy as np
+from PyQt5 import QtCore
+
+from data_management.database import Database
 from task.ressources import GripManager, ValveManager, GripTracker, SoundManager
 from task.stimuli_finder import StimuliFinder
-from time import time
+from utils.utils import log
 
 
 class Experimentalist(QtCore.QThread, QtCore.QObject):
@@ -96,7 +99,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
     def run(self):
 
-        print("Experimentalist: Run.")
+        log("Experimentalist: Run.")
         # Show graphic interface
         self.command(self.interface_window.show)
 
@@ -106,29 +109,29 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
     def wait_for_graphic_msg(self):
 
-        print("Experimentalist: Wait for graphic msg.")
+        log("Experimentalist: Wait for graphic msg.")
 
         graphic_msg = self.graphic_queue.get()
 
         if graphic_msg[0] == "game_close_window":
 
-            print("Experimentalist: Game close window.")
+            log("Experimentalist: Game close window.")
             self.end_game()
 
         elif graphic_msg[0] == "interface_close_task":
 
-            print("Experimentalist: Interface close task.")
+            log("Experimentalist: Interface close task.")
             self.end_game()
 
         elif graphic_msg[0] == "interface_close_window":
 
-            print("Experimentalist: Interface close window.")
+            log("Experimentalist: Interface close window.")
             self.end_program()
             return
 
         elif graphic_msg[0] == "interface_run":
 
-            print("Experimentalist: Interface run.")
+            log("Experimentalist: Interface run.")
             # Get parameters from graphic interface
             self.parameters = graphic_msg[1]
 
@@ -136,21 +139,21 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
         elif graphic_msg[0] == "game_play":
 
-            print("Experimentalist: Game play.")
+            log("Experimentalist: Game play.")
             self.play_game()
 
         elif graphic_msg[0] == "game_left":
 
-            print("Experimentalist: choice left.")
+            log("Experimentalist: choice left.")
             self.decide("left")
 
         elif graphic_msg[0] == "game_right":
 
-            print("Experimentalist: choice right.")
+            log("Experimentalist: choice right.")
             self.decide("right")
 
         else:
-            print("ERROR: msg from graphics not understood.")
+            log("ERROR: msg from graphics not understood.")
 
         self.wait_for_graphic_msg()
 
@@ -165,7 +168,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
     def end_program(self):
 
-        print("Experimentalist: end_program")
+        log("Experimentalist: end_program")
 
         if self.current_saving.is_set():
             self.data_saved.wait()
@@ -193,15 +196,23 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
         if self.parameters["fake"]:
             self.game_window.track_fake_grip(queue=self.grip_queue, value=self.grip_value)
+
         else:
-            # if not self.connection_to_raspi.is_connected():
-            #     self.connection_to_raspi.connect()
+
             if not self.valve_manager.isRunning():
                 self.valve_manager.establish_connection()
                 self.valve_manager.start()
+
             if not self.grip_manager.isRunning():
                 self.grip_manager.establish_connection()
                 self.grip_manager.start()
+
+        # Tell to stimuli generator parameters to use
+        self.stimuli_finder.set_parameters(
+            control_trials_proportion=self.parameters["control_trials_proportion"],
+            with_losses_proportion=self.parameters["with_losses_proportion"],
+            incongruent_proportion=self.parameters["incongruent_proportion"]
+        )
 
         # Show 'pause screen' on game window
         self.game_window.current_step = "show_pause_screen"
@@ -220,7 +231,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
     def play_game(self):
 
-        print('Experimentalist: PLAY GAME.')
+        log('Experimentalist: PLAY GAME.')
 
         # Play appropriate sound
         self.sound_manager.play("start")
@@ -230,7 +241,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
     def end_game(self):
 
-        print('Experimentalist: END GAME.')
+        log('Experimentalist: END GAME.')
 
         # Stop the grip tracker
         self.grip_tracker.cancel()
@@ -256,7 +267,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
     def begin_new_block(self):
 
-        print("Experimentalist: Start new block.")
+        log("Experimentalist: Start new block.")
 
         # Reinitialize
         self.n_trial_inside_block = 0
@@ -271,7 +282,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
     def end_block(self):
 
-        print("Experimentalist: End of a block.")
+        log("Experimentalist: End of a block.")
 
         # Upgrade counter
         self.n_block += 1
@@ -288,7 +299,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
     def begin_new_trial(self):
 
-        print("Experimentalist: New trial.")
+        log("Experimentalist: New trial.")
 
         # Reinitialize
         self.error = None
@@ -308,7 +319,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
     def end_trial(self):
 
-        print("Experimentalist: End of trial.")
+        log("Experimentalist: End of trial.")
 
         # Save trial (on RAM)
         if self.parameters["save"] == 1:
@@ -348,7 +359,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
         # Otherwise wait for him to do it
         elif self.grip_value.value == 0:
 
-            print("Experimentalist: wait for grasping.")
+            log("Experimentalist: wait for grasping.")
 
             self.grip_tracker.launch(
                 handling_function=self.grasp_before_stimuli_display,
@@ -359,7 +370,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
     def grasp_before_stimuli_display(self):
 
-        print("Experimentalist: grasp before stimuli display.")
+        log("Experimentalist: grasp before stimuli display.")
 
         # Observe if the user holds the grip for a certain time, otherwise do what is appropriate
         self.grip_tracker.launch(
@@ -374,7 +385,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
     def show_stimuli(self):
 
-        print("Experimentalist: Show stimuli.")
+        log("Experimentalist: Show stimuli.")
 
         # Stop grip tracker whose purpose was to rise an error if user has release the grip
         self.grip_tracker.cancel()
@@ -392,7 +403,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
     def decide(self, choice):
 
-        print("Experimentalist: Decide.")
+        log("Experimentalist: Decide.")
 
         # Stop previous timer
         self.timer.cancel()
@@ -423,7 +434,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
     def show_results(self):
 
-        print("Experimentalist: Show results.")
+        log("Experimentalist: Show results.")
 
         # Stop previous timer
         self.timer.cancel()
@@ -448,7 +459,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
     def inter_trial(self):
 
-        print("Experimentalist: Inter-trial.")
+        log("Experimentalist: Inter-trial.")
 
         # Update display on game window
         self.game_window.current_step = "show_gauge"
@@ -465,7 +476,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
     def punish(self):
 
-        print("Experimentalist: PUNISH.")
+        log("Experimentalist: PUNISH.")
 
         # Play appropriated sound
         self.sound_manager.play("punishment")
@@ -480,7 +491,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
     def release_before_end_of_fixation_time(self):
 
-        print("Experimentalist: Release grip before the end of the fixation time.")
+        log("Experimentalist: Release grip before the end of the fixation time.")
         self.timer.cancel()
 
         self.error = "release before end of fixation time"
@@ -488,14 +499,14 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
     def did_not_take_decision(self):
 
-        print("Experimentalist: Did not take a decision.")
+        log("Experimentalist: Did not take a decision.")
         self.error = "too long to take a decision"
         self.time_to_decide = -1
         self.punish()
 
     def did_not_came_back_to_the_grip(self):
 
-        print("Experimentalist: Did not came back to the grip.")
+        log("Experimentalist: Did not came back to the grip.")
         self.time_to_come_back_to_the_grip = -1
         self.error = "did not came back to the grip"
         self.punish()
@@ -578,7 +589,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
             if not self.parameters["fake"]:
                 self.valve_manager.open(self.parameters["valve_opening_time"])
             else:
-                print("FakeValveManager: GIVE WATER.")
+                log("FakeValveManager: GIVE WATER.")
 
 
 # ----------------------------------------- STIMULI & RESULTS ---------------------------------------------------- #
@@ -623,7 +634,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
         self.data_saved.clear()
         self.current_saving.set()
 
-        print("Experimentalist: SAVE SESSION.")
+        log("Experimentalist: SAVE SESSION.")
 
         self.parameters.pop("save")
 
@@ -649,23 +660,23 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
                 table_name=summary_table_name,
                 columns=columns)
 
-            print("Experimentalist: Summary table created.")
+            log("Experimentalist: Summary table created.")
 
         else:
-            print("Experimentalist: Summary table already exists.")
+            log("Experimentalist: Summary table already exists.")
 
         # Create a session table
-        print("Experimentalist: Create session table.")
+        log("Experimentalist: Create session table.")
         monkey = self.parameters["monkey"]
         session_table_name = "session_{}_{}".format(str(date.today()).replace("-", "_"), monkey)
         if database.table_exists(table_name=session_table_name):
 
-            print("Experimentalist: Session table with name {} already exists.".format(session_table_name))
+            log("Experimentalist: Session table with name {} already exists.".format(session_table_name))
 
             idx = 2
             session_table_name += "({})".format(idx)
             while database.table_exists(table_name=session_table_name):
-                print("Experimentalist: Session table with name {} already exists.".format(session_table_name))
+                log("Experimentalist: Session table with name {} already exists.".format(session_table_name))
                 session_table_name = session_table_name.replace("({})".format(idx), "({})".format(idx+1))
                 idx += 1
 
@@ -678,7 +689,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
             columns=columns
         )
 
-        print("Experimentalist: Session table created with name {}.".format(session_table_name))
+        log("Experimentalist: Session table created with name {}.".format(session_table_name))
 
         # Fill summary table
         database.fill_table(summary_table_name, **self.parameters, date=str(date.today()),
@@ -688,7 +699,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
         for i in range(len(self.to_save)):
             database.fill_table(session_table_name, **self.to_save[i])
 
-        print("Experimentalist: DATA SAVED.")
+        log("Experimentalist: DATA SAVED.")
 
         self.current_saving.clear()
         self.data_saved.set()

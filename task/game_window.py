@@ -1,15 +1,16 @@
-from PyQt5.QtWidgets import QWidget, QApplication, QGraphicsEllipseItem, \
-    QStyleOptionGraphicsItem, QGridLayout, QMainWindow
-from PyQt5.QtGui import QPalette, QColor, QPainter, QBrush, QPen, QPixmap, QImage
-from PyQt5.QtCore import QRectF, Qt, QPoint, QTimer
+from PyQt5.QtWidgets import *
+from PyQt5.QtGui import *
+from PyQt5.QtCore import *
 from collections import OrderedDict
 from multiprocessing import Queue
 import sys
 import numpy as np
 
+from utils.utils import log
+
 
 # ----------------------------------------------------------------------------------------------------------- #
-# ------------------------------------------------ FRAME ---------------------------------------------------- #
+# ------------------------------------------------ COLORS --------------------------------------------------- #
 # ----------------------------------------------------------------------------------------------------------- #
 
 
@@ -43,7 +44,7 @@ class Frame(QWidget):
         self.setPalette(pal)
 
 # ----------------------------------------------------------------------------------------------------------- #
-# ------------------------------------------------ GAUGE ---------------------------------------------------- #
+# ------------------------------------------------ PAUSE ---------------------------------------------------- #
 # ----------------------------------------------------------------------------------------------------------- #
 
 
@@ -480,7 +481,7 @@ class GameWindow(QMainWindow):
             elif self.isVisible():
 
                 self.hide()
-        # print("GameWindow: ", self.current_step)
+        # log("GameWindow: ", self.current_step)
         elif self.current_step == "show_stimuli":
 
             if self.current_step != self.previous_step:
@@ -537,7 +538,7 @@ class GameWindow(QMainWindow):
 
         else:
 
-            print("ERROR: WRONG COMMAND FOR GAME WINDOW: ", self.current_step)
+            log("ERROR: WRONG COMMAND FOR GAME WINDOW: {}".format(self.current_step))
 
         self.previous_step = self.current_step
 
@@ -671,15 +672,15 @@ class GameWindow(QMainWindow):
 
     def mousePressEvent(self, event):
 
-        print("GameWindow: MOUSE CLICK.")
+        log("GameWindow: MOUSE CLICK.")
         if self.current_step == "show_stimuli":
 
             if self.frames["left"].ellipse.contains(event.pos()):
-                print("GameWindow: CLICK LEFT.")
+                log("GameWindow: CLICK LEFT.")
                 self.queue.put(("game_left", ))
 
             if self.frames["right"].ellipse.contains(QPoint(event.x() - self.width()*(4/7), event.y())):
-                print("GameWindow: CLICK RIGHT.")
+                log("GameWindow: CLICK RIGHT.")
                 self.queue.put(("game_right", ))
 
             else:
@@ -689,7 +690,7 @@ class GameWindow(QMainWindow):
 
     def keyPressEvent(self, event):
 
-        # print("GameWindow: KEY PRESSED.")
+        # log("GameWindow: KEY PRESSED.")
 
         if event.key() == Qt.Key_Control:
 
@@ -703,7 +704,7 @@ class GameWindow(QMainWindow):
         elif self.current_step == "show_pause_screen" and event.key() == Qt.Key_Space:
 
             if not event.isAutoRepeat():
-                print("GameWindow: PRESS 'PLAY'.")
+                log("GameWindow: PRESS 'PLAY'.")
                 self.queue.put(("game_play", ))
 
         elif self.control_modifier and event.key() == Qt.Key_X:
@@ -751,7 +752,7 @@ class GameWindow(QMainWindow):
 
     def closeEvent(self, event):
 
-        print("GameWindow: Close window.")
+        log("GameWindow: Close window.")
         self.queue.put(("game_close_window", ))
         if self.standalone:
             event.accept()
@@ -782,7 +783,6 @@ def main():
     window.show()
 
     sys.exit(app.exec_())
-
 
 
 if __name__ == "__main__":

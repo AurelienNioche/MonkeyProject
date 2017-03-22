@@ -2,13 +2,18 @@ import numpy as np
 from threading import Thread
 from multiprocessing import Queue
 from PyQt5.QtWidgets import QApplication
-from collections import OrderedDict
-from task.game_window import GameWindow
 import sys
+
+from task.game_window import GameWindow
+from utils.utils import log
 
 
 class StimuliFinder(object):
+
     def __init__(self):
+
+        # Container for proportion of every type of trial
+        self.proportion = dict()
 
         self.gauge_maximum = 6
         self.maximum_x = 3
@@ -31,27 +36,65 @@ class StimuliFinder(object):
 
         self.sides = ["left", "right"]
 
-        self.conditions = OrderedDict(
-            [
-                (self.p_fixed_x0_positive, 0.25),
-                (self.p_fixed_x0_negative, 0.25),
-                (self.p_fixed_x0_negative_vs_positive, 0.25),
-                (self.x_fixed, 0.25),
-                (self.congruent_negative, 0),
-                (self.congruent_positive, 0),
-                (self.incongruent_positive, 0),
-                (self.incongruent_negative, 0)
-            ]
-        )
+        self.conditions = {
+            "control": {
+                "without_losses":
+                    [
+                        self.p_fixed_x0_positive,
+                        self.x_fixed_x0_positive
+
+                    ],
+                "with_losses":
+                    [
+                        self.p_fixed_x0_negative,
+                        self.x_fixed_x0_negative,
+                        self.p_fixed_x0_negative_vs_positive
+                    ]
+            },
+            "congruent": {
+
+                "without_losses": self.congruent_positive,
+                "with_losses": self.congruent_negative
+            },
+            "incongruent": {
+                "without_losses": self.incongruent_positive,
+                "with_losses": self.incongruent_negative
+            }
+        }
+
+    def set_parameters(self, control_trials_proportion, with_losses_proportion, incongruent_proportion):
+
+        self.proportion["control_trials"] = control_trials_proportion / 100
+        self.proportion["with_losses"] = with_losses_proportion / 100
+        self.proportion["incongruent"] = incongruent_proportion / 100
 
     def find(self):
 
-        # p could be [i for i in self.conditions.values()]
-        return np.random.choice([i for i in self.conditions.keys()], p=None)()
+        control = np.random.random() < self.proportion["control_trials"]
+        with_losses = np.random.random() < self.proportion["with_losses"]
+        if control:
+            if with_losses:
+                stimuli = np.random.choice(self.conditions["control"]["with_losses"])()
+            else:
+                stimuli = np.random.choice(self.conditions["control"]["without_losses"])()
+        else:
+            incongruent = np.random.random() < self.proportion["incongruent"]
+
+            if incongruent:
+                relevant_conditions = self.conditions["incongruent"]
+            else:
+                relevant_conditions = self.conditions["congruent"]
+
+            if with_losses:
+                stimuli = relevant_conditions["with_losses"]()
+            else:
+                stimuli = relevant_conditions["without_losses"]()
+
+        return stimuli
 
     def p_fixed_x0_positive(self):
 
-        print("StimulusFinder: p fixed; x0 positive.")
+        log("StimulusFinder: p fixed; x0 positive.")
 
         single_p = np.random.choice(self.possible_p)
         x0 = np.random.choice(self.positive_x, size=2, replace=False)
@@ -60,7 +103,7 @@ class StimuliFinder(object):
 
     def p_fixed_x0_negative(self):
 
-        print("StimulusFinder: p fixed; x0 negative.")
+        log("StimulusFinder: p fixed; x0 negative.")
 
         single_p = np.random.choice(self.possible_p)
         x0 = np.random.choice(self.negative_x, size=2, replace=False)
@@ -69,7 +112,7 @@ class StimuliFinder(object):
 
     def p_fixed_x0_negative_vs_positive(self):
 
-        print("StimulusFinder: p fixed; x0 negative vs positive.")
+        log("StimulusFinder: p fixed; x0 negative vs positive.")
 
         single_p = np.random.choice(self.possible_p)
         x0 = [np.random.choice(self.negative_x), np.random.choice(self.positive_x)]
@@ -78,16 +121,34 @@ class StimuliFinder(object):
 
     def x_fixed(self):
 
-        print("StimulusFinder: x fixed.")
+        log("StimulusFinder: x fixed.")
 
         p = np.random.choice(self.possible_p, size=2, replace=False)
         single_x0 = np.random.choice(list(self.positive_x) + list(self.negative_x))
 
         return self.assign_values(p=p, x0=[single_x0, single_x0], x1=[0, 0])
 
+    def x_fixed_x0_positive(self):
+
+        log("StimulusFinder: x fixed; x0 positive.")
+
+        p = np.random.choice(self.possible_p, size=2, replace=False)
+        single_x0 = np.random.choice(self.positive_x)
+
+        return self.assign_values(p=p, x0=[single_x0, single_x0], x1=[0, 0])
+
+    def x_fixed_x0_negative(self):
+
+        log("StimulusFinder: x fixed; x0 negative.")
+
+        p = np.random.choice(self.possible_p, size=2, replace=False)
+        single_x0 = np.random.choice(self.negative_x)
+
+        return self.assign_values(p=p, x0=[single_x0, single_x0], x1=[0, 0])
+
     def congruent_positive(self):
 
-        print("StimulusFinder: congruent positive.")
+        log("StimulusFinder: congruent positive.")
 
         p = sorted(np.random.choice(self.possible_p, size=2, replace=False))
         x0 = sorted(np.random.choice(self.positive_x, size=2, replace=False))
@@ -96,7 +157,7 @@ class StimuliFinder(object):
 
     def congruent_negative(self):
 
-        print("StimulusFinder: congruent negative.")
+        log("StimulusFinder: congruent negative.")
 
         p = sorted(np.random.choice(self.possible_p, size=2, replace=False))
         x0 = sorted(np.random.choice(self.negative_x, size=2, replace=False))
@@ -105,7 +166,7 @@ class StimuliFinder(object):
 
     def incongruent_positive(self):
 
-        print("StimulusFinder: incongruent positive.")
+        log("StimulusFinder: incongruent positive.")
 
         p = sorted(np.random.choice(self.possible_p, size=2, replace=False))
         x0 = sorted(np.random.choice(self.positive_x, size=2, replace=False), reverse=True)
@@ -114,7 +175,7 @@ class StimuliFinder(object):
 
     def incongruent_negative(self):
 
-        print("StimulusFinder: incongruent negative.")
+        log("StimulusFinder: incongruent negative.")
 
         p = sorted(np.random.choice(self.possible_p, size=2, replace=False))
         x0 = sorted(np.random.choice(self.negative_x, size=2, replace=False), reverse=True)
@@ -123,7 +184,7 @@ class StimuliFinder(object):
 
     def random(self):
 
-        print("StimulusFinder: Random")
+        log("StimulusFinder: Random")
         while True:
 
             p = np.random.choice(self.possible_p, size=2)
@@ -191,15 +252,22 @@ def main():
 def test_stimuli(win):
 
     sf = StimuliFinder()
+    sf.set_parameters(
+        control_trials_proportion=50,
+        with_losses_proportion=50,
+        incongruent_proportion=50
+    )
+
     sp = sf.find()
 
     win.current_step = "show_stimuli"
     win.set_parameters(sp)
 
-    # Just tap 'enter' to generate a new stimuli
     while True:
-        a = input()
-        if a == "quit()":
+        keyboard_input = input("Hit  'enter' key to generate a new stimuli or type 'quit()' to quit\n")
+        print(keyboard_input)
+        if keyboard_input == "quit()":
+            win.destroy()
             break
         else:
             sp = sf.find()
@@ -239,7 +307,7 @@ def test_difference_expected_value():
                 (1 - sp["{}_p".format(side)]) * sp["{}_x1".format(side)]
         diff.append(exp["left"] - exp["right"])
 
-    print(np.unique(diff))
+    log(np.unique(diff))
 
 
 if __name__ == "__main__":

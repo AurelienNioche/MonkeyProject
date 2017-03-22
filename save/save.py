@@ -2,12 +2,14 @@ from sqlite3 import connect, OperationalError
 from os import path, mkdir
 import json
 
+from utils.utils import log
+
 
 class Database(object):
 
     def __init__(self):
 
-        with open("parameters/where_to_save_results.json") as file:
+        with open("parameters/results_path.json") as file:
 
             param = json.load(file)
 
@@ -86,7 +88,7 @@ class Database(object):
         try:
             self.write(query)
         except OperationalError as e:
-            print("Error with query", query)
+            log("Database: Error with query: {}".format(query))
             raise e
     
     def read(self, query):
@@ -96,7 +98,7 @@ class Database(object):
         try:
             self.cursor.execute(query)
         except OperationalError as e:
-            print("Error with query", query)
+            log("Database: Error with query: {}".format(query))
             raise e
 
         content = self.cursor.fetchall()
@@ -148,7 +150,7 @@ class Database(object):
             query = "SELECT {} from `{}` WHERE {}".format(column_name, table_name, conditions)
         
         a = self.read(query)
-        # print("result query", a)
+        # log("result query", a)
         if a:
             a = [i[0] for i in a]
             if len(a) == 1:
