@@ -160,7 +160,7 @@ class StimuliFinder(object):
         log("StimulusFinder: congruent negative.")
 
         p = sorted(np.random.choice(self.possible_p, size=2, replace=False))
-        x0 = sorted(np.random.choice(self.negative_x, size=2, replace=False))
+        x0 = sorted(np.random.choice(self.negative_x, size=2, replace=False), reverse=True)
 
         return self.assign_values(p=p, x0=x0, x1=[0, 0])
 
@@ -178,7 +178,7 @@ class StimuliFinder(object):
         log("StimulusFinder: incongruent negative.")
 
         p = sorted(np.random.choice(self.possible_p, size=2, replace=False))
-        x0 = sorted(np.random.choice(self.negative_x, size=2, replace=False), reverse=True)
+        x0 = sorted(np.random.choice(self.negative_x, size=2, replace=False))
 
         return self.assign_values(p=p, x0=x0, x1=[0, 0])
 
