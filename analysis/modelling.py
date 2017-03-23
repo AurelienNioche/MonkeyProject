@@ -1,201 +1,55 @@
-from itertools import product
+import itertools as it
 from multiprocessing import Pool, cpu_count
 from os import path, mkdir
 
-import ternary
-from pylab import plt, np
-from scipy.optimize import curve_fit
+import numpy as np
 from scipy.stats import binom
 
-from save.save import Database
-
-
-def select_posterior_dates(dates_list, starting_point):
-
-    starting_point = [int(i) for i in starting_point.split("-")]
-
-    new_dates = []
-    for str_date in dates_list:
-        date = [int(i) for i in str_date.split("-")]
-        if date[0] > starting_point[0]:
-
-            new_dates.append(str_date)
-        elif date[0] == starting_point[0]:
-            if date[1] > starting_point[1]:
-                new_dates.append(str_date)
-            elif date[1] == starting_point[1]:
-                if date[2] >= starting_point[2]:
-                    new_dates.append(str_date)
-    return new_dates
-
-
-class ArchetypeFinder(object):
-
-    def __init__(self, starting_point):
-
-        self.db = Database()
-        self.monkey_reference = "Havane"
-        self.starting_point = starting_point
-
-    @staticmethod
-    def expected_value(lottery):
-
-        return lottery[0] * lottery[1]
-
-    @staticmethod
-    def get_incongruent_lotteries(lotteries):
-
-        incongruent_lotteries = []
-        for l0, l1 in lotteries:
-
-            if l0[0] < l1[0] and l0[1] > l1[1]:
-
-                incongruent_lotteries.append((l0, l1))
-
-            elif l0[0] > l1[0] and l0[1] < l1[1]:
-
-                # Order is reversed here for having risky lottery in front
-                incongruent_lotteries.append((l1, l0))
-
-        n_incongruent_lotteries = len(incongruent_lotteries)
-        print("N incongruent lotteries:", n_incongruent_lotteries)
-
-        return incongruent_lotteries
-
-    @staticmethod
-    def select_unique_lotteries(errors, probas, quantities):
-
-        lotteries = []
-
-        for t in range(len(errors)):
-
-            if errors[t] == "None":
-                lottery = (
-                    (probas["left"][t], quantities["left"][t]),
-                    (probas["right"][t], quantities["right"][t])
-
-                )
-
-                if lottery not in lotteries and lottery[::-1] not in lotteries:
-                    lotteries.append(lottery)
-
-        return lotteries
-
-    def run(self):
-
-        all_dates = self.db.read_column(table_name="summary", column_name='date', monkey=self.monkey_reference)
-        dates = select_posterior_dates(all_dates, self.starting_point)
-        print("Dates", dates)
-        print("N dates", len(dates))
-
-        errors, probas, quantities = self.get_errors_probas_and_quantities_from_db(dates)
-
-        lotteries = self.select_unique_lotteries(errors, probas, quantities)
-
-        print("N unique couple of lotteries:", len(lotteries))
-
-        incongruent_lotteries_in_arbitrary_order = self.get_incongruent_lotteries(lotteries)
-
-        incongruent_lotteries = \
-            self.class_lotteries_according_to_difference_in_expected_value(incongruent_lotteries_in_arbitrary_order)
-
-        return incongruent_lotteries
-
-    def get_errors_probas_and_quantities_from_db(self, dates):
-
-        probas = {"left": [], "right": []}
-        quantities = {"left": [], "right": []}
-        errors = []
-        for date in dates:
-
-            session_table = \
-                self.db.read_column(table_name="summary", column_name='session_table',
-                                    monkey=self.monkey_reference, date=date)
-
-            errors += \
-                self.db.read_column(table_name=session_table, column_name="error")
-
-            for side in ["left", "right"]:
-
-                probas[side] += \
-                    [float(i) for i in self.db.read_column(table_name=session_table, column_name='{}_p'.format(side))]
-                quantities[side] += \
-                    [int(i) for i in self.db.read_column(table_name=session_table, column_name='{}_x0'.format(side))]
-
-        return errors, probas, quantities
-
-    def class_lotteries_according_to_difference_in_expected_value(self, lotteries_list):
-
-        diff_exp_values = np.zeros(len(lotteries_list))
-
-        i = 0
-        for l0, l1 in lotteries_list:
-
-            diff_exp_values[i] = self.expected_value(l0) - self.expected_value(l1)
-            i += 1
-
-        lotteries = np.asarray(lotteries_list)
-        lotteries_with_new_order = np.zeros(lotteries.shape)
-
-        sorted_diff_exp_values = np.sort(np.unique(diff_exp_values))
-        print('Sorted differences in expected value', sorted_diff_exp_values)
-
-        i = 0
-        for v in sorted_diff_exp_values:
-
-            idx_list = np.where(diff_exp_values == v)[0]
-
-            for idx in idx_list:
-
-                lotteries_with_new_order[i, :, :] = lotteries[idx, :, :]
-                i += 1
-
-        return lotteries_with_new_order
+from data_management.data_manager import import_data
+from utils.utils import today, log
 
 
 class Model(object):
 
-    reward_max = 4
+    labels = ['loss_aversion', 'negative_risk_aversion', 'positive_risk_aversion', 'probability_distortion', 'temp']
 
-    def __init__(self, r, tau,  alpha):
+    reward_max = 3
 
-        self.r = r
-        self.tau = tau
-        self.alpha = alpha
+    def __init__(self, parameters):
+
+        self.parameters = dict()
+
+        for i, j in zip(sorted(self.labels), parameters):
+            self.parameters[i] = j
 
     def softmax(self, x1, x2):
 
         """Compute softmax values for each sets of scores in x."""
         # print("x", x)
         # return np.exp(x / tau) / np.sum(np.exp(x / tau), axis=0)
-        return 1/(1+np.exp(-(1/self.tau)*(x1-x2)))
+        return 1/(1+np.exp(-(1/self.parameters["temp"])*(x1-x2)))
 
     def u(self, x):
 
         """Compute utility for a single output considering a parameter of risk-aversion"""
         if x > 0:
-            return (x/self.reward_max) ** (1-self.r)
-        elif x == 0:
-            return 0
+            return (x/self.reward_max) ** (1-self.parameters["positive_risk_aversion"])
         else:
-            raise Exception("Reward can not be negative")
+            return - ((np.absolute(x)/self.reward_max) ** self.parameters["negative_risk_aversion"]) \
+                  / (1 - self.parameters["loss_aversion"])
 
     def U(self, L):
 
-        # print("L", L)
+        """Compute utility for a lottery"""
         p, v = L[0], L[1]
         y = self.w(p) * self.u(v)
 
-        # y = 0
-        # for p, v in L:
-        #     print(p, v)
-        #
-        #     y += p * cls.u(v, r)
         return y
 
     def w(self, p):
+        """Probability distortion"""
 
-        return np.exp(-(-np.log(p))**self.alpha)
+        return np.exp(-(-np.log(p))**self.parameters["probability_distortion"])
 
     def get_p(self, lottery_0, lottery_1):
 
@@ -209,830 +63,287 @@ class Model(object):
 
 class ModelRunner(object):
 
+    n_values_per_parameter = 10
+
     def __init__(self):
 
-        self.n_values_per_parameter = 50
-        self.possible_r_values = np.linspace(-1., 1., self.n_values_per_parameter)
-        self.possible_tau_values = np.linspace(0.005, 1., self.n_values_per_parameter)
-        self.possible_alpha_values = np.linspace(0., 1., self.n_values_per_parameter)
+        self.possible_parameter_values = {
+            "positive_risk_aversion": np.linspace(-1., 1., self.n_values_per_parameter),
+            "negative_risk_aversion": np.linspace(-1., 1., self.n_values_per_parameter),
+            "probability_distortion": np.linspace(0., 1., self.n_values_per_parameter),
+            "loss_aversion": np.linspace(0.5, 1., self.n_values_per_parameter),
+            "temp": np.linspace(0.05, 1., self.n_values_per_parameter)
 
-        self.n_parameters_vectors = \
-            len(self.possible_alpha_values) \
-            * len(self.possible_tau_values) \
-            * len(self.possible_r_values)
+        }
 
-        self.parameters = np.zeros((self.n_parameters_vectors, 3))
-
-        self.pool = Pool(processes=cpu_count())
+        assert sorted(Model.labels) == sorted(self.possible_parameter_values.keys())
 
     @staticmethod
     def compute(param):
 
         ps = []
+        parameters, alternatives = param[0], param[1]
+        model = Model(parameters)
 
-        r, tau, alpha = param[0], param[1], param[2]
-        lotteries = param[3]
-        for l1, l2 in lotteries:
-
-            model = Model(r=r, tau=tau, alpha=alpha)
+        for l1, l2 in alternatives:
 
             p = model.get_p(l1, l2)
-
             ps.append(p)
 
         return ps
 
     def prepare_run(self, lotteries):
 
+        parameters = np.array(list(
+            it.product(*[self.possible_parameter_values[i] for i in sorted(self.possible_parameter_values.keys())])
+        ))
+
         param_for_workers = []
 
-        i = 0
-        for r, tau, alpha in product(self.possible_r_values, self.possible_tau_values, self.possible_alpha_values):
-            self.parameters[i] = r, tau, alpha
-            param_for_workers.append([r, tau, alpha, lotteries])
-            i += 1
+        for i in parameters:
 
-        return param_for_workers
+            param_for_workers.append([i, lotteries])
 
-    def run(self, lotteries):
+        return parameters, param_for_workers
 
-        param_for_workers = self.prepare_run(lotteries)
+    def run(self, alternatives):
 
-        p_values = self.pool.map(self.compute, param_for_workers)
+        log("[ModelRunner] Launch run of model...")
 
-        return self.parameters, p_values
+        parameters, param_for_workers = self.prepare_run(alternatives)
 
+        log("[ModelRunner] Number of different set of parameters: {}.".format(len(parameters[:, 0])))
 
-class DataGetter(object):
+        pool = Pool(processes=cpu_count())
+        p = np.array(pool.map(self.compute, param_for_workers))
 
-    def __init__(self, database_folder, database_name, starting_point, monkey):
-
-        self.db = Database(database_folder=database_folder, database_name=database_name)
-        self.monkey = monkey
-        self.starting_point = starting_point
-
-    def get_errors_choices_probas_and_quantities(self, dates):
-
-        probas = {"left": [], "right": []}
-        quantities = {"left": [], "right": []}
-        errors = []
-        choices = []
-        for date in dates:
-
-            session_table = \
-                self.db.read_column(table_name="summary", column_name='session_table',
-                                    monkey=self.monkey, date=date)
-
-            # If multiple tables for the same day and the same monkey, take only the last one!
-            if type(session_table) == list:
-                session_table = session_table[-1]
-
-            errors += \
-                self.db.read_column(table_name=session_table, column_name="error")
-
-            choices += \
-                [i == "left" for i in self.db.read_column(table_name=session_table, column_name="choice")]
-
-            for side in ["left", "right"]:
-                probas[side] += \
-                    [float(i) for i in self.db.read_column(table_name=session_table, column_name='{}_p'.format(side))]
-
-                quantities[side] += \
-                    [int(i) for i in self.db.read_column(table_name=session_table, column_name='{}_x0'.format(side))]
-
-        choices = np.asarray(choices)
-
-        return errors, choices, probas, quantities
-
-    def get_n_and_k_per_lotteries(self, lotteries):
-
-        dates = self.db.read_column(table_name="summary", column_name='date', monkey=self.monkey)
-
-        dates = select_posterior_dates(dates, self.starting_point)
-
-        print("Dates", dates)
-        print("N dates", len(dates))
-
-        n_per_lotteries = np.zeros(len(lotteries))
-        k_per_lotteries = np.zeros(len(lotteries))
-
-        errors, choices, probas, quantities = self.get_errors_choices_probas_and_quantities(dates)
-
-        print("N trials (errors included)", len(choices))
-
-        valid_trials = np.where(np.asarray(errors) == "None")[0]
-        print("N valid trials:", len(valid_trials))
-
-        for i in valid_trials:
-            lottery = np.array([
-                [probas["left"][i], quantities["left"][i]],
-                [probas["right"][i], quantities["right"][i]]
-            ])
-
-            for idx, ex_lottery in enumerate(lotteries):
-
-                if ex_lottery[0][0] == lottery[0][0] and \
-                        ex_lottery[0][1] == lottery[0][1] and \
-                        ex_lottery[1][0] == lottery[1][0] and \
-                        ex_lottery[1][1] == lottery[1][1]:
-
-                    n_per_lotteries[idx] += 1
-                    k_per_lotteries[idx] += choices[i]
-                    break
-                elif ex_lottery[0][0] == lottery[1][0] and \
-                        ex_lottery[0][1] == lottery[1][1] and \
-                        ex_lottery[1][0] == lottery[0][0] and \
-                        ex_lottery[1][1] == lottery[0][1]:
-
-                    n_per_lotteries[idx] += 1
-                    k_per_lotteries[idx] += 1 - choices[i]
-                    break
-
-        print("N per lotteries: ", n_per_lotteries)
-        print("K per lotteries:", k_per_lotteries)
-
-        return n_per_lotteries, k_per_lotteries
+        log("[ModelRunner] Done!")
+        return parameters, p
 
 
-class MLEComputer(object):
+class LLS(object):
 
-    def __init__(self, model_parameters, model_p_values, exp_n_values, exp_k_values):
+    def __init__(self, k, n, p):
 
-        self.model_parameters = model_parameters
-        self.model_p_values = model_p_values
-        self.exp_n_values = exp_n_values
-        self.exp_k_values = exp_k_values
+        self.k = k
+        self.n = n
+        self.p = p
 
-    def __call__(self, m):
+    def __call__(self, parameters_set):
 
         log_likelihood_sum = 0
 
-        for i in range(len(self.exp_n_values)):
-            k, n, p = self.exp_k_values[i], self.exp_n_values[i], self.model_p_values[m, i]
+        for i in range(len(self.n)):
+
+            k, n, p = self.k[i], self.n[i], self.p[parameters_set, i]
 
             likelihood = binom.pmf(k=k, n=n, p=p)
+
+            if likelihood == 0:
+                log_likelihood_sum = - np.inf
+                break
+
             log_likelihood = np.log(likelihood)
             log_likelihood_sum += log_likelihood
 
         return log_likelihood_sum
 
 
-class Fit(object):
+class LlsComputer(object):
 
-    def __init__(self, model_parameters, model_p_values, exp_n_values, exp_k_values):
+    def __init__(self, k, n, p):
 
-        self.model_parameters = model_parameters
-        self.model_p_values = model_p_values
-        self.exp_n_values = exp_n_values
-        self.exp_k_values = exp_k_values
-        self.pool = Pool(processes=cpu_count())
-
-    def run(self, method):
-
-        if method == "LSE":
-
-            output = self.fit_with_LSE()
-
-        elif method == "MLE":
-
-            output = self.fit_with_MLE()
-
-        else:
-            raise Exception("Method {} is not defined for fitting data...".format(method))
-
-        return output
-
-    def fit_with_LSE(self):
-
-        print("Doing LSE fit...")
-
-        sse = np.zeros(len(self.model_parameters))
-
-        exp_mean = self.exp_k_values/self.exp_n_values
-
-        for m in range(len(self.model_parameters)):
-
-            sse[m] = np.sum(np.power(self.model_p_values[m] - exp_mean[:], 2))
-
-        print("Done.")
-
-        return sse
-
-    def fit_with_MLE(self):
-
-        print("Doing MLE fit...")
-
-        lls = self.pool.map(
-            MLEComputer(
-                self.model_parameters, self.model_p_values,
-                self.exp_n_values, self.exp_k_values
-            ),
-            np.arange(len(self.model_parameters))
-        )
-        lls = np.asarray(lls)
-
-        print("Done")
-
-        return lls
-
-
-class Analysis(object):
-
-    def __init__(self, lse_fit, mle_fit, model_parameters, monkey, figure_folder, n_trials):
-
-        self.lse_fit = lse_fit
-        self.mle_fit = mle_fit
-        self.model_parameters = model_parameters
-        self.monkey = monkey
-        self.n_trials = n_trials
-        self.parameters_name = ["r", "tau", "alpha"]
-        self.fig_folder = figure_folder
+        self.k = k
+        self.n = n
+        self.p = p
 
     def run(self):
 
-        self.create_folder()
+        log("[LlsComputer] Launch lls computation...")
 
-        self.analyse_lse_fit()
-        print()
-        self.analyse_mle_fit()
-        print()
+        assert len(self.k) == len(self.n) == len(self.p[0, :]), \
+            "len k: {}; len n: {}; len p: {}.".format(
+                len(self.k), len(self.n), len(self.p[0, :]))
 
-    def create_folder(self):
+        pool = Pool(processes=cpu_count())
 
-        if not path.exists(self.fig_folder):
-            mkdir(self.fig_folder)
+        lls_list = pool.map(
 
-    def analyse_lse_fit(self):
+            LLS(self.k, self.n, self.p),
+            np.arange(len(self.p[:, 0]))
 
-        # ------------------ #
-        # Analysis in console
-        # ------------------ #
+        )
 
-        self.lse_basic_analysis()
+        lls_list = np.asarray(lls_list)
 
-        # ------------------ #
-        # One plot per parameter
-        # ------------------ #
+        log("[LlsComputer] Done!")
 
-        self.lse_plot_error_according_to_parameter_values()
+        return lls_list
 
-        # ------------------ #
-        # Phase diagram
-        # ------------------ #
 
-        self.lse_plot_phase_diagram()
+class AlternativesNKGetter(object):
 
-    def lse_basic_analysis(self, force=False):
+    def __init__(self, data):
 
-        file_name = "{}/{}_{}_basic_analysis.txt".format(self.fig_folder, "lse", self.monkey)
+        self.data = data
 
-        if path.exists(file_name) and not force:
+    def run(self):
 
-            pass
+        results = {}
 
-        else:
-            file = open(file_name, mode="w")
+        n_trials = len(self.data["p"]["left"])
 
-            txt = ""
-            txt += "Least square estimation for {}".format(self.monkey)
-            txt += "\n[r, tau, alpha], from the best to the worst:"
+        for t in range(n_trials):
 
-            ordered_idx_fit = np.argsort(self.lse_fit.copy())
-            txt += "\n{}".format(self.model_parameters[ordered_idx_fit])
+            alternative = (
+                (self.data["p"]["left"][t], self.data["x0"]["left"][t]),
+                (self.data["p"]["right"][t], self.data["x0"]["right"][t])
+            )
 
-            file.write(txt)
+            reversed_alternative = alternative[::-1]
 
-    def lse_plot_error_according_to_parameter_values(self, force=False):
+            reverse = False
+            if alternative not in results.keys():
+                if reversed_alternative not in results.keys():
+                    results[alternative] = {"n": 0, "k": 0}
+                else:
+                    reverse = True
 
-        for param in range(3):
-
-            fig_name = "{}/{}_{}_{}.pdf".format(self.fig_folder, "lse", self.monkey, self.parameters_name[param])
-
-            if path.exists(fig_name) and not force:
-
-                pass
-
+            if reverse:
+                results[reversed_alternative]["n"] += 1
+                results[reversed_alternative]["k"] += int(self.data["choice"][t] == "right")
             else:
+                results[alternative]["n"] += 1
+                results[alternative]["k"] += int(self.data["choice"][t] == "left")
 
-                x = np.unique(self.model_parameters[:, param])
-                y = []
-                y_std = []
+        alternatives, n, k = [], [], []
 
-                for value in x:
-                    data = self.lse_fit[self.model_parameters[:, param] == value]
+        idx = 0
+        for i, j in results.items():
 
-                    y.append(np.mean(data))
-                    y_std.append(np.std(data))
+            alternatives.append(i), n.append(j["n"]), k.append(j["k"])
 
-                y = np.asarray(y)
+            idx += 1
 
-                y_std = np.asarray(y_std)
+        return alternatives, n, k
 
-                self.plot(x=x,
-                          y=y,
-                          y_std=y_std,
-                          x_label=self.parameters_name[param],
-                          y_label="Mean of squared errors sum",
-                          monkey=self.monkey,
-                          parameter=self.parameters_name[param],
-                          fig_name=fig_name)
 
-    def lse_plot_phase_diagram(self, force=False, inv_colors=False):
+def get_model_data(npy_files, alternatives, force=False):
 
-        if inv_colors:
+    if all([path.exists(file) for file in npy_files.values()]) and not force:
 
-            fig_name = "{}/{}_lse_inv_colors.pdf".format(self.fig_folder, self.monkey)
-
-        else:
-            fig_name = "{}/{}_lse.pdf".format(self.fig_folder, self.monkey)
-
-        if path.exists(fig_name) and force is False:
-
-            pass
-
-        else:
-
-            # Get the list of tested parameters
-            r_values = np.unique(self.model_parameters[:, 0])
-            tau_values = np.unique(self.model_parameters[:, 1])
-            alpha_values = np.unique(self.model_parameters[:, 2])
-
-            assert len(r_values) == len(tau_values) and len(tau_values) == len(alpha_values), \
-                "The same number of data points for each parameter is required."
-
-            # Scale is the number of data points per parameter
-            scale = len(np.unique(self.model_parameters[:, 0])) - 1
-
-            # Format data (dict with parameters tuple for key values and errors as values)
-            v_dic = dict()
-
-            i = 0
-            for r, tau, alpha in self.model_parameters:
-                v_dic[(r, tau, alpha)] = self.lse_fit[i]
-                i += 1
-
-            # Create points
-            data = dict()
-            for (i, j, k) in ternary.helpers.simplex_iterator(scale):
-                data[(i, j, k)] = v_dic[(r_values[i], tau_values[j], alpha_values[k])]
-
-            # Create figure
-            figure, tax = ternary.figure(scale=scale)
-
-            # Remove border
-            fig_gca = figure.gca()
-            fig_gca.set_frame_on(False)
-
-            tax.boundary(linewidth=2.0)
-
-            if inv_colors:
-                color_map = "viridis"
-            else:
-                color_map = "viridis_r"
-            tax.heatmap(data, scale=scale, style="triangular", cmap=color_map)
-            # tax.gridlines(color="blue", multiple=5)
-            tax.set_title("{} - Mean of squared error sums - 30 pairs of lotteries - {} trials\n"
-                          .format(self.monkey, self.n_trials), fontsize=13)
-
-            font_size = 20
-            offset = 0.15
-
-            tax.bottom_axis_label(r"$r$", fontsize=font_size, offset=- offset / 4)
-            tax.right_axis_label(r"$\tau$", fontsize=font_size, offset=offset)
-            tax.left_axis_label(r"$\alpha$", fontsize=font_size, offset=offset)
-
-            order = ["b", "r", "l"]  # Remain that order is bottom, right, left
-
-            for i in range(3):
-                ticks = ["%.2f" % i for i in
-                         np.linspace(min(self.model_parameters[:, i]),
-                                     max(self.model_parameters[:, i]),
-                                     5)]
-
-                offset = 0.028
-                if i == 0:
-                    offset /= 1.5
-                tax.ticks(ticks=ticks, axis=order[i], linewidth=1, offset=offset)
-
-            tax.clear_matplotlib_ticks()
-            tax._redraw_labels()  # Bug in saving fig otherwise on Mac OSX
-
-            plt.savefig(fig_name)
-            plt.close()
-
-    def analyse_mle_fit(self):
-
-        # ------------------ #
-        # Analysis in console
-        # ------------------ #
-
-        self.mle_basic_analysis()
-
-        # ------------------ #
-        # One plot per parameter
-        # ------------------ #
-
-        self.mle_plot_error_according_to_parameter_value()
-
-        # ------------------ #
-        # Phase diagram
-        # ------------------ #
-
-        self.mle_plot_phase_diagram()
-
-    def mle_basic_analysis(self, force=False):
-
-        file_name = "{}/{}_{}_basic_analysis.txt".format(self.fig_folder, "mle", self.monkey)
-
-        if path.exists(file_name) and not force:
-
-            pass
-
-        else:
-            file = open(file_name, mode="w")
-
-            txt = ""
-            txt += "Maximum likelihood estimation for {}".format(self.monkey)
-            txt += "\n[r, tau, alpha], from the best to the worst:"
-
-            ordered_idx_fit = np.argsort(self.mle_fit.copy())[::-1]
-            txt += "\n{}".format(self.model_parameters[ordered_idx_fit])
-
-            file.write(txt)
-
-    def mle_plot_error_according_to_parameter_value(self, force=False):
-
-        # To avoid to have - infinite in data, cancel log transformation
-
-        likelihood = np.exp(self.mle_fit)
-
-        # print()
-        # print(self.mle_fit)
-        # print('*****')
-        # print(likelihood)
-
-        for param in range(3):
-
-            fig_name = "{}/{}_{}_{}.pdf".format(self.fig_folder, "mle", self.monkey, self.parameters_name[param])
-
-            if path.exists(fig_name) and not force:
-
-                pass
-
-            else:
-
-                x = np.unique(self.model_parameters[:, param])
-                y = []
-                y_std = []
-
-                for value in x:
-                    data = likelihood[self.model_parameters[:, param] == value]
-
-                    y.append(np.mean(data))
-                    y_std.append(np.std(data))
-
-                y = np.asarray(y)
-
-                y_std = np.asarray(y_std)
-
-                self.plot(x=x,
-                          y=y,
-                          y_std=y_std,
-                          x_label=self.parameters_name[param],
-                          y_label="Mean of likelihood",
-                          monkey=self.monkey,
-                          parameter=self.parameters_name[param],
-                          fig_name=fig_name)
-
-    def mle_plot_phase_diagram(self, force=False):
-
-        likelihood = np.exp(self.mle_fit)
-
-        fig_name = "{}/{}_mle.pdf".format(self.fig_folder, self.monkey)
-
-        if path.exists(fig_name) and not force:
-
-            pass
-
-        else:
-
-            # Get the list of tested parameters
-            r_values = np.unique(self.model_parameters[:, 0])
-            tau_values = np.unique(self.model_parameters[:, 1])
-            alpha_values = np.unique(self.model_parameters[:, 2])
-
-            assert len(r_values) == len(tau_values) and len(tau_values) == len(alpha_values), \
-                "The same number of data points for each parameter is required."
-
-            # Scale is the number of data points per parameter
-            scale = len(np.unique(self.model_parameters[:, 0])) - 1
-
-            # Format data (dict with parameters tuple for key values and errors as values)
-            v_dic = dict()
-
-            i = 0
-            for r, tau, alpha in self.model_parameters:
-                v_dic[(r, tau, alpha)] = likelihood[i]
-                i += 1
-
-            # Create points
-            data = dict()
-            for (i, j, k) in ternary.helpers.simplex_iterator(scale):
-                data[(i, j, k)] = v_dic[(r_values[i], tau_values[j], alpha_values[k])]
-
-            # Create figure
-            figure, tax = ternary.figure(scale=scale)
-
-            # Remove border
-            fig_gca = figure.gca()
-            fig_gca.set_frame_on(False)
-
-            tax.boundary(linewidth=2.0)
-            tax.heatmap(data, scale=scale, style="triangular", cmap="viridis_r")
-            # tax.gridlines(color="blue", multiple=5)
-            tax.set_title("{} - Mean of squared error sums - 30 pairs of lotteries - {} trials\n"
-                          .format(self.monkey, self.n_trials), fontsize=13)
-
-            font_size = 20
-            offset = 0.15
-
-            tax.bottom_axis_label(r"$r$", fontsize=font_size, offset=- offset / 4)
-            tax.right_axis_label(r"$\tau$", fontsize=font_size, offset=offset)
-            tax.left_axis_label(r"$\alpha$", fontsize=font_size, offset=offset)
-
-            order = ["b", "r", "l"]  # Remain that order is bottom, right, left
-
-            for i in range(3):
-                ticks = ["%.2f" % i for i in
-                         np.linspace(min(self.model_parameters[:, i]),
-                                     max(self.model_parameters[:, i]),
-                                     5)]
-
-                offset = 0.028
-                if i == 0:
-                    offset /= 1.5
-                tax.ticks(ticks=ticks, axis=order[i], linewidth=1, offset=offset)
-
-            tax.clear_matplotlib_ticks()
-            tax._redraw_labels()  # Bug in saving fig otherwise on Mac OSX
-
-            plt.savefig(fig_name)
-            plt.close()
-
-    @staticmethod
-    def plot(x, y, y_std, x_label, y_label, monkey, fig_name, x_lim=None, y_lim=None, parameter=None, n_trials=None):
-
-        plt.plot(x, y, c='b', lw=2)
-        plt.plot(x, y + y_std, c='b', lw=.5)
-        plt.plot(x, y - y_std, c='b', lw=.5)
-        plt.fill_between(x, y + y_std, y - y_std, color='b', alpha=.1)
-
-        plt.xlabel("{}\n".format(x_label), fontsize=12)
-        plt.ylabel("{}\n".format(y_label), fontsize=12)
-
-        if x_lim:
-            plt.xlim(x_lim)
-        if y_lim:
-            plt.ylim(y_lim)
-
-        if parameter:
-            plt.title("{} - {}".format(monkey, parameter))
-        else:
-            plt.title("{}".format(monkey))
-
-        if n_trials:
-
-            plt.text(x=min(x) + (max(x) - min(x)) * 0.5, y=0.4, s="Trials number: {}".format(n_trials))
-
-        plt.xlim(min(x), max(x))
-
-        plt.savefig(fig_name)
-
-        plt.close()
-
-
-class SimpleAnalysis(object):
-
-    def __init__(self, monkey, figure_folder, exp_n_values, exp_k_values, lotteries):
-
-        self.monkey = monkey
-        self.exp_n_values = exp_n_values
-        self.exp_k_values = exp_k_values
-        self.lotteries = lotteries
-
-        self.fig_folder = figure_folder
-
-        self.X = []
-        self.Y = []
-        self.Y_std = []
-
-        self.n_per_expected_value = {}
-        self.k_per_expected_value = {}
-
-    @staticmethod
-    def expected_value(lottery):
-
-        return lottery[0] * lottery[1]
-
-    @staticmethod
-    def sigmoid(x, x0, k):
-        y = 1 / (1 + np.exp(-k * (x - x0)))
-        return y
-
-    def run(self, force=False):
-
-        fig_name = "{}/{}_diff_expected_value.pdf".format(self.fig_folder, self.monkey)
-
-        if path.exists(fig_name) and not force:
-
-            return
-
-        n_trials = int(np.sum(self.exp_n_values))
-
-        xdata = np.zeros(len(self.lotteries))
-        ydata = np.zeros(len(self.lotteries))
-
-        i = 0
-
-        for l0, l1 in self.lotteries:
-
-            diff_exp_value = self.expected_value(l0) - self.expected_value(l1)
-
-            xdata[i] = diff_exp_value
-            ydata[i] = self.exp_k_values[i] / self.exp_n_values[i]
-
-            i += 1
-
-        popt, pcov = curve_fit(self.sigmoid, xdata, ydata)
-
-        x = np.linspace(-1.25, 1.25, 50)
-        # noinspection PyTypeChecker
-        y = self.sigmoid(x, *popt)
-
-        plt.plot(xdata, ydata, 'o', color=(0., 0., 0.), label='data')
-        plt.plot(x, y, color=(0., 0., 0.), label='fit')
-
-        plt.xlim(-1.27, 1.27)
-        plt.ylim(0, 1.)
-
-        plt.title("{}\n".format(self.monkey))
-
-        plt.xlabel("Difference in expected value between the riskiest option and the safest option")
-        plt.ylabel("Frequency at which the riskiest option is chosen")
-
-        plt.text(x=min(x) + (max(x) - min(x)) * 0.7, y=0.4, s="Trials number: {}".format(n_trials))
-
-        # plt.legend(loc='best')
-        plt.savefig(fig_name)
-        plt.show()
-
-
-def get_archetypes(database_name, database_folder, starting_point, incongruent_lotteries_couples_file, force=False):
-
-    if path.exists(incongruent_lotteries_couples_file) and not force:
-
-        incongruent_lotteries = np.load(incongruent_lotteries_couples_file)
-
-    else:
-        a = ArchetypeFinder(database_folder=database_folder, database_name=database_name, starting_point=starting_point)
-        incongruent_lotteries = a.run()
-        np.save(incongruent_lotteries_couples_file, incongruent_lotteries)
-
-    return incongruent_lotteries
-
-
-def get_model_parameters_and_p_values(model_parameters_file, model_p_values_file,
-                                      lotteries, force=False):
-
-    if path.exists(model_parameters_file) and path.exists(model_p_values_file) and not force:
-
-        model_parameters = np.load(model_parameters_file)
-        model_p_values = np.load(model_p_values_file)
+        parameters = np.load(npy_files["parameters"])
+        p = np.load(npy_files["p"])
 
     else:
 
         m = ModelRunner()
-        model_parameters, model_p_values = m.run(lotteries)
-        np.save(model_parameters_file, model_parameters)
-        np.save(model_p_values_file, model_p_values)
+        parameters, p = m.run(alternatives=alternatives)
 
-    return model_parameters, model_p_values
+        np.save(npy_files["parameters"], parameters)
+        np.save(npy_files["p"], p)
 
-
-def get_monkey_data(monkey, monkey_data_files, starting_point, database_folder, database_name, lotteries, force=False):
-
-    if path.exists(monkey_data_files[monkey]["n"]) and path.exists(monkey_data_files[monkey]["k"]) and not force:
-
-        n_per_lotteries = np.load(monkey_data_files[monkey]["n"])
-        k_per_lotteries = np.load(monkey_data_files[monkey]["k"])
-
-    else:
-
-        d = DataGetter(database_folder=database_folder, database_name=database_name,
-                       monkey=monkey, starting_point=starting_point)
-        n_per_lotteries, k_per_lotteries = d.get_n_and_k_per_lotteries(lotteries)
-
-        np.save(monkey_data_files[monkey]["n"], n_per_lotteries)
-        np.save(monkey_data_files[monkey]["k"], k_per_lotteries)
-
-    return n_per_lotteries, k_per_lotteries
+    return parameters, p
 
 
-def get_fit(model_parameters, model_p_values, exp_n_values, exp_k_values, monkey_data_files, monkey, force=False):
+def get_monkey_data(monkey, npy_files, starting_point, end_point, force=False):
 
-    if path.exists(monkey_data_files[monkey]["MLE"]) and path.exists(monkey_data_files[monkey]["LSE"]) and not force:
+    if all([path.exists(file) for file in npy_files.values()]) and not force:
 
-        lse_fit = np.load(monkey_data_files[monkey]["LSE"])
-        mle_fit = np.load(monkey_data_files[monkey]["MLE"])
+        alternatives = np.load(npy_files["alternatives"])
+        n = np.load(npy_files["n"])
+        k = np.load(npy_files["k"])
 
     else:
 
-        fit = Fit(
-            exp_k_values=exp_k_values, exp_n_values=exp_n_values,
-            model_p_values=model_p_values, model_parameters=model_parameters)
+        data = import_data(monkey=monkey, starting_point=starting_point, end_point=end_point)
 
-        lse_fit = fit.run(method="LSE")
-        np.save(monkey_data_files[monkey]["LSE"], lse_fit)
+        alternatives_n_k_getter = AlternativesNKGetter(data)
+        alternatives, n, k = alternatives_n_k_getter.run()
 
-        mle_fit = fit.run(method="MLE")
-        np.save(monkey_data_files[monkey]["MLE"], mle_fit)
+        np.save(npy_files["n"], n)
+        np.save(npy_files["k"], k)
+        np.save(npy_files["alternatives"], alternatives)
 
-    return lse_fit, mle_fit
+    return alternatives, n, k
+
+
+def get_lls(n, k, p, npy_file, force=False):
+
+    if path.exists(npy_file) and not force:
+
+        lls = np.load(npy_file)
+
+    else:
+
+        lls_computer = LlsComputer(k=k, n=n, p=p)
+        lls = lls_computer.run()
+
+        np.save(npy_file, lls)
+
+    return lls
+
+
+def treat_results(monkey, lls_list, parameters_list):
+
+    arg = np.argmax(lls_list)
+    print("{}: ".format(monkey) + "".join(["{}: {:.2f}; ".format(k, v) for k, v in zip(sorted(Model.labels), parameters_list[arg])]))
 
 
 def main():
 
-    starting_point = "2016-08-11"
-    database_folder = "../../results"
-    figure_folder = "../../figures"
-    database_name = "results_sequential"
-    npy_files_folder = "../../analysis_sequential_npy_files"
-    incongruent_lotteries_couples_file = "{}/{}.npy".format(npy_files_folder, "incongruent_lotteries_couples")
-    model_p_values_file = "{}/{}.npy".format(npy_files_folder, "model_p_values")
-    model_parameters_file = "{}/{}.npy".format(npy_files_folder, "model_parameters")
+    starting_point = "2016-02-01"
+    end_point = today()
 
-    monkey_data_files = {
-
-        "Havane":
-            {
-                "n": "{}/{}.npy".format(npy_files_folder, "havane_data_n"),
-                "k": "{}/{}.npy".format(npy_files_folder, "havane_data_k"),
-                "LSE": "{}/{}.npy".format(npy_files_folder, "havane_fit_lse"),
-                "MLE": "{}/{}.npy".format(npy_files_folder, "havane_fit_mle")
-            },
-        "Gladys":
-            {
-                "n": "{}/{}.npy".format(npy_files_folder, "gladys_data_n"),
-                "k": "{}/{}.npy".format(npy_files_folder, "gladys_data_k"),
-                "LSE": "{}/{}.npy".format(npy_files_folder, "gladys_fit_lse"),
-                "MLE": "{}/{}.npy".format(npy_files_folder, "gladys_fit_mle")
-            }
+    folders = {
+        "figures": path.expanduser("~/Desktop/monkey_figures"),
+        "npy_files": path.expanduser("~/Desktop/monkey_npy_files")
     }
 
-    monkeys = ["Gladys"]
+    for folder in folders.values():
+        if not path.exists(folder): mkdir(folder)
 
-    incongruent_lotteries = \
-        get_archetypes(database_folder=database_folder, database_name=database_name, starting_point=starting_point,
-                       incongruent_lotteries_couples_file=incongruent_lotteries_couples_file)
+    files = dict()
+    files["model"] = {
+        "p": "{}/{}.npy".format(folders["npy_files"], "model_p"),
+        "parameters": "{}/{}.npy".format(folders["npy_files"], "model_parameters")
+    }
 
-    model_parameters, model_p_values = \
-        get_model_parameters_and_p_values(model_parameters_file=model_parameters_file,
-                                          model_p_values_file=model_p_values_file,
-                                          lotteries=incongruent_lotteries)
+    for monkey in ["Havane", "Gladys"]:
+
+        files[monkey] = {
+            "data": {
+                "alternatives": "{}/{}_{}.npy".format(folders["npy_files"], monkey, "alternatives"),
+                "n": "{}/{}_{}.npy".format(folders["npy_files"], monkey, "n"),
+                "k": "{}/{}_{}.npy".format(folders["npy_files"], monkey, "k"),
+            },
+            "LLS": "{}/{}_{}.npy".format(folders["npy_files"], monkey, "lls")
+        }
+
+    monkeys = ["Gladys", "Havane"]
 
     for monkey in monkeys:
 
-        n_per_incongruent_lotteries, k_per_incongruent_lotteries = \
-            get_monkey_data(monkey=monkey, monkey_data_files=monkey_data_files,
-                            starting_point=starting_point,
-                            database_folder=database_folder,
-                            database_name=database_name,
-                            lotteries=incongruent_lotteries)
+        print()
+        log("[__main__] Processing for {}...".format(monkey))
 
-        lse_fit, mle_fit = get_fit(
-            model_parameters=model_parameters, model_p_values=model_p_values,
-            exp_n_values=n_per_incongruent_lotteries,
-            exp_k_values=k_per_incongruent_lotteries,
-            monkey_data_files=monkey_data_files, monkey=monkey)
+        alternatives, n, k = get_monkey_data(
+            monkey=monkey, starting_point=starting_point, end_point=end_point,
+            npy_files=files[monkey]["data"])
 
-        a = Analysis(lse_fit=lse_fit, mle_fit=mle_fit, model_parameters=model_parameters, monkey=monkey,
-                     figure_folder=figure_folder,
-                     n_trials=int(np.sum(n_per_incongruent_lotteries)))
+        parameters, p = \
+            get_model_data(npy_files=files["model"], alternatives=alternatives, force=True)
 
-        a.lse_basic_analysis()
-        a.lse_plot_error_according_to_parameter_values()
-        a.lse_plot_phase_diagram()
+        lls_list = get_lls(
+            k=k,
+            n=n,
+            p=p,
+            npy_file=files[monkey]["LLS"], force=True)
 
-        a.mle_plot_error_according_to_parameter_value()
-        a.mle_plot_phase_diagram()
-        a.mle_basic_analysis()
+        treat_results(monkey, lls_list, parameters)
 
-        b = SimpleAnalysis(monkey=monkey,
-                           lotteries=incongruent_lotteries,
-                           exp_n_values=n_per_incongruent_lotteries,
-                           exp_k_values=k_per_incongruent_lotteries,
-                           figure_folder=figure_folder)
-        b.run()
+        log("[__main__] Done!")
+
 
 if __name__ == "__main__":
 

@@ -127,7 +127,7 @@ class Interface(QWidget):
 
     def initialize(self):
 
-        self.setGeometry(300, 300, 550, 480)
+        self.setGeometry(300, 100, 550, 480)
 
         self.setLayout(self.grid)
 

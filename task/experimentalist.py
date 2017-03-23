@@ -525,7 +525,8 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
         reward = self.stimuli_parameters["{}_x{}".format(self.choice, self.dice_output)]
 
-        time_per_unity = results_display_time / self.stimuli_finder.maximum_x
+        # '+2' allows to have a short time before the beginning of the sequence and a short time at the end
+        time_per_unity = results_display_time / (self.stimuli_finder.maximum_x + 2)
 
         if reward > 0:
             sound = "reward"
@@ -543,7 +544,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
 
         for i in sequence:
             timer = Timer(
-                time_per_unity * (np.absolute(i) - 1), self.set_gauge_quantity,
+                time_per_unity * np.absolute(i), self.set_gauge_quantity,
                 kwargs={
                     "quantity": self.gauge_level + i,
                     "sound": sound
@@ -576,7 +577,7 @@ class Experimentalist(QtCore.QThread, QtCore.QObject):
         for i in sequence:
 
             timer = Timer(
-                time_per_unity*np.absolute(i), self.set_gauge_quantity,
+                time_per_unity * np.absolute(i), self.set_gauge_quantity,
                 kwargs=
                 {
                     "quantity": self.gauge_level - i,

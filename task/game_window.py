@@ -467,7 +467,7 @@ class GameWindow(QMainWindow):
         self.hide_pause_screen()
         self.hide_stimuli()
 
-        self.timer.setInterval(50)
+        self.timer.setInterval(10)
         self.timer.timeout.connect(self.update_display)
         self.timer.start()
 

@@ -62,19 +62,13 @@ class Analyst(object):
 
                 if self.is_trial_with_riskiest_option_on_left(t):
 
-                    risky = "left"
-                    safe = "right"
+                    risky, safe = "left", "right"
 
                 elif self.is_trial_with_riskiest_option_on_right(t):
 
-                    risky = "right"
-                    safe = "left"
+                    risky, safe = "right", "left"
 
-                else:
-
-                    risky, safe = None, None
-
-                if risky is not None and safe is not None:
+                if "risky" in locals():
 
                     alternative = (
                         (self.data["p"][risky][t], self.data["x0"][risky][t]),
@@ -164,9 +158,9 @@ def main():
 
     for monkey in ["Havane", "Gladys"]:
 
-        for condition in ["with_gains_only", "with_losses_only"]:
+        data = import_data(monkey=monkey, starting_point=starting_point, end_point=end_point)
 
-            data = import_data(monkey=monkey, starting_point=starting_point, end_point=end_point)
+        for condition in ["with_gains_only", "with_losses_only"]:
 
             fig_name = "{}/{}_preference_toward_risk_against_EV_{}.pdf"\
                 .format(fig_folder, monkey, condition)

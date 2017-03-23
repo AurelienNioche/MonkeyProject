@@ -3,7 +3,6 @@ from multiprocessing import Queue
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtGui import QIcon
 import sys
-import json
 
 from task.game_window import GameWindow
 from task.interface import Interface
