@@ -244,6 +244,7 @@ class Gauge(QWidget):
     def set_quantity(self, quantity):
 
         self.token_number = int(quantity)
+        self.repaint()
 
     def set_color(self, color):
 
@@ -651,10 +652,12 @@ class GameWindow(QMainWindow):
     def set_gauge_color(self, color):
 
         self.frames["gauge"].set_color(color=color)
+        self.frames["gauge"].repaint()
 
     def set_gauge_quantity(self, **kwargs):
 
         self.frames["gauge"].set_quantity(quantity=kwargs["quantity"])
+        self.frames["gauge"].repaint()
 
 # ------------------------------------------------ FAKE GRIP ------------------------------------------------------- #
 

@@ -63,7 +63,7 @@ class Model(object):
 
 class ModelRunner(object):
 
-    n_values_per_parameter = 10
+    n_values_per_parameter = 50
 
     def __init__(self):
 
@@ -284,18 +284,24 @@ def get_lls(n, k, p, npy_file, force=False):
     return lls
 
 
-def treat_results(monkey, lls_list, parameters_list):
+def treat_results(monkey, lls_list, parameters_list, result_file):
 
     arg = np.argmax(lls_list)
-    print("{}: ".format(monkey) + "".join(["{}: {:.2f}; ".format(k, v) for k, v in zip(sorted(Model.labels), parameters_list[arg])]))
+    msg = "{}: ".format(monkey) + \
+        "".join(["{}: {:.2f}; ".format(k, v) for k, v in zip(sorted(Model.labels), parameters_list[arg])])
+    print(msg)
+    with open(result_file, 'a') as file:
+        file.write(msg)
+        file.write("\n")
 
 
 def main():
 
-    starting_point = "2016-02-01"
+    starting_point = "2016-01-01"
     end_point = today()
 
     folders = {
+        "results": path.expanduser("~/Desktop/results"),
         "figures": path.expanduser("~/Desktop/monkey_figures"),
         "npy_files": path.expanduser("~/Desktop/monkey_npy_files")
     }
@@ -304,6 +310,7 @@ def main():
         if not path.exists(folder): mkdir(folder)
 
     files = dict()
+    files["result"] = "{}/{}.txt".format(folders["results"], "result")
     files["model"] = {
         "p": "{}/{}.npy".format(folders["npy_files"], "model_p"),
         "parameters": "{}/{}.npy".format(folders["npy_files"], "model_parameters")
@@ -329,7 +336,9 @@ def main():
 
         alternatives, n, k = get_monkey_data(
             monkey=monkey, starting_point=starting_point, end_point=end_point,
-            npy_files=files[monkey]["data"])
+            npy_files=files[monkey]["data"], force=True)
+
+        log("[__main__]")
 
         parameters, p = \
             get_model_data(npy_files=files["model"], alternatives=alternatives, force=True)
@@ -340,7 +349,7 @@ def main():
             p=p,
             npy_file=files[monkey]["LLS"], force=True)
 
-        treat_results(monkey, lls_list, parameters)
+        treat_results(monkey, lls_list, parameters, files["result"])
 
         log("[__main__] Done!")
 

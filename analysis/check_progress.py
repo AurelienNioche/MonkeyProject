@@ -141,7 +141,7 @@ def check_progress():
     starting_point = "2016-08-11"
 
     for monkey in ["Havane", "Gladys"]:
-
+     
         print("Analysis for {}".format(monkey))
         print()
 
