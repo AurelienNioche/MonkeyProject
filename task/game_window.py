@@ -486,15 +486,16 @@ class GameWindow(QMainWindow):
         elif self.current_step == "show_stimuli":
 
             if self.current_step != self.previous_step:
-
                 self.hide_black_screen()
                 self.hide_pause_screen()
                 self.show_stimuli()
 
+            else:
+                self.frames["gauge"].repaint()
+
         elif self.current_step == "show_black_screen":
 
             if self.current_step != self.previous_step:
-
                 self.hide_pause_screen()
                 self.hide_stimuli()
                 self.show_black_screen()
@@ -508,10 +509,14 @@ class GameWindow(QMainWindow):
                 self.hide_stimuli()
 
         elif self.current_step == "show_choice":
+
             if self.current_step != self.previous_step:
                 self.hide_black_screen()
                 self.hide_pause_screen()
                 self.show_choice()
+
+            else:
+                self.frames["gauge"].repaint()
 
         elif self.current_step == "show_results":
 
@@ -522,7 +527,6 @@ class GameWindow(QMainWindow):
                 self.show_results()
 
             else:
-
                 self.frames["gauge"].repaint()
 
         elif self.current_step == "show_gauge":
@@ -652,12 +656,10 @@ class GameWindow(QMainWindow):
     def set_gauge_color(self, color):
 
         self.frames["gauge"].set_color(color=color)
-        self.frames["gauge"].repaint()
 
     def set_gauge_quantity(self, **kwargs):
 
         self.frames["gauge"].set_quantity(quantity=kwargs["quantity"])
-        self.frames["gauge"].repaint()
 
 # ------------------------------------------------ FAKE GRIP ------------------------------------------------------- #
 
