@@ -1,12 +1,13 @@
 # coding=utf-8
-from multiprocessing import Queue
-from PyQt5.QtWidgets import QApplication
-from PyQt5.QtGui import QIcon
 import sys
+from multiprocessing import Queue, Value, Event
 
-from task.game_window import GameWindow
-from task.interface import Interface
-from task.experimentalist import Experimentalist
+from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import QApplication
+
+from graphics.interface import Interface
+from graphics.generic import Communicant
+from task.experimentalist import Manager
 from utils.utils import git_report
 
 
@@ -20,16 +21,23 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setWindowIcon(QIcon("textures/monkey.png"))
 
-    graphic_queue = Queue()
+    queues = {
+        "manager": Queue(),
+        "interface": Queue(),
+        "grip_queue": Queue(),
+        "grip_value": Value('i', 0)
+    }
 
-    interface_window = Interface(queue=graphic_queue)
-    game_window = GameWindow(queue=graphic_queue, textures_folder="textures")
+    shutdown = Event()
+    communicant = Communicant()
+
+    interface = Interface(queues=queues, communicant=communicant, shutdown=shutdown)
 
     # Start process that will handle events
-    experimentalist = Experimentalist(
-        game_window=game_window,
-        interface_window=interface_window,
-        graphic_queue=graphic_queue
+    experimentalist = Manager(
+        queues=queues,
+        communicant=communicant,
+        shutdown=shutdown
     )
 
     experimentalist.start()

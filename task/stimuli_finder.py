@@ -1,14 +1,17 @@
-import numpy as np
-from threading import Thread
-from multiprocessing import Queue
-from PyQt5.QtWidgets import QApplication
 import sys
+from multiprocessing import Queue
+from threading import Thread
 
-from task.game_window import GameWindow
+import numpy as np
+from PyQt5.QtWidgets import QApplication
+
+from graphics.game_window import GameWindow
 from utils.utils import log
 
 
 class StimuliFinder(object):
+
+    name = "SimulusFinder"
 
     def __init__(self):
 
@@ -94,7 +97,7 @@ class StimuliFinder(object):
 
     def p_fixed_x0_positive(self):
 
-        log("StimulusFinder: p fixed; x0 positive.")
+        log("p fixed; x0 positive.", self.name)
 
         single_p = np.random.choice(self.possible_p)
         x0 = np.random.choice(self.positive_x, size=2, replace=False)
@@ -103,7 +106,7 @@ class StimuliFinder(object):
 
     def p_fixed_x0_negative(self):
 
-        log("StimulusFinder: p fixed; x0 negative.")
+        log("p fixed; x0 negative.", self.name)
 
         single_p = np.random.choice(self.possible_p)
         x0 = np.random.choice(self.negative_x, size=2, replace=False)
@@ -112,7 +115,7 @@ class StimuliFinder(object):
 
     def p_fixed_x0_negative_vs_positive(self):
 
-        log("StimulusFinder: p fixed; x0 negative vs positive.")
+        log("p fixed; x0 negative vs positive.", self.name)
 
         single_p = np.random.choice(self.possible_p)
         x0 = [np.random.choice(self.negative_x), np.random.choice(self.positive_x)]
@@ -121,7 +124,7 @@ class StimuliFinder(object):
 
     def x_fixed(self):
 
-        log("StimulusFinder: x fixed.")
+        log("x fixed.", self.name)
 
         p = np.random.choice(self.possible_p, size=2, replace=False)
         single_x0 = np.random.choice(list(self.positive_x) + list(self.negative_x))
@@ -130,7 +133,7 @@ class StimuliFinder(object):
 
     def x_fixed_x0_positive(self):
 
-        log("StimulusFinder: x fixed; x0 positive.")
+        log("x fixed; x0 positive.", self.name)
 
         p = np.random.choice(self.possible_p, size=2, replace=False)
         single_x0 = np.random.choice(self.positive_x)
@@ -139,7 +142,7 @@ class StimuliFinder(object):
 
     def x_fixed_x0_negative(self):
 
-        log("StimulusFinder: x fixed; x0 negative.")
+        log("x fixed; x0 negative.", self.name)
 
         p = np.random.choice(self.possible_p, size=2, replace=False)
         single_x0 = np.random.choice(self.negative_x)
@@ -148,7 +151,7 @@ class StimuliFinder(object):
 
     def congruent_positive(self):
 
-        log("StimulusFinder: congruent positive.")
+        log("congruent positive.", self.name)
 
         p = sorted(np.random.choice(self.possible_p, size=2, replace=False))
         x0 = sorted(np.random.choice(self.positive_x, size=2, replace=False))
@@ -157,7 +160,7 @@ class StimuliFinder(object):
 
     def congruent_negative(self):
 
-        log("StimulusFinder: congruent negative.")
+        log("congruent negative.", self.name)
 
         p = sorted(np.random.choice(self.possible_p, size=2, replace=False))
         x0 = sorted(np.random.choice(self.negative_x, size=2, replace=False), reverse=True)
@@ -166,7 +169,7 @@ class StimuliFinder(object):
 
     def incongruent_positive(self):
 
-        log("StimulusFinder: incongruent positive.")
+        log("incongruent positive.", self.name)
 
         p = sorted(np.random.choice(self.possible_p, size=2, replace=False))
         x0 = sorted(np.random.choice(self.positive_x, size=2, replace=False), reverse=True)
@@ -175,7 +178,7 @@ class StimuliFinder(object):
 
     def incongruent_negative(self):
 
-        log("StimulusFinder: incongruent negative.")
+        log("incongruent negative.", self.name)
 
         p = sorted(np.random.choice(self.possible_p, size=2, replace=False))
         x0 = sorted(np.random.choice(self.negative_x, size=2, replace=False))
@@ -184,7 +187,7 @@ class StimuliFinder(object):
 
     def random(self):
 
-        log("StimulusFinder: Random")
+        log("Random", self.name)
         while True:
 
             p = np.random.choice(self.possible_p, size=2)

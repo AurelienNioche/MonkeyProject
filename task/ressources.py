@@ -1,9 +1,7 @@
-# -*- coding: utf-8 -*-
 from multiprocessing import Event, Queue
-from PyQt5 import QtCore
+from threading import Thread
 import socket
 import errno
-import subprocess
 
 from utils.utils import log
 
@@ -15,9 +13,9 @@ from utils.utils import log
 
 class Client(object):
 
-    def __init__(self, function, rpi_ip_address):
+    def __init__(self, func, rpi_ip_address):
 
-        self.function = function
+        self.function = func
 
         if self.function == "speaker":
 
@@ -29,31 +27,26 @@ class Client(object):
 
         self.server_host = rpi_ip_address
 
-        self.socket = self.establish_connection()
+        self.socket = None
 
     def establish_connection(self):
 
-        while True:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(1)
 
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(1)
+        try:
 
-            try:
+            sock.connect((self.server_host, self.server_port))
+            sock.settimeout(None)
+            log("I'm connected.", self.function.capitalize())
+            self.socket = sock
+            return 1
 
-                sock.connect((self.server_host, self.server_port))
-                break
-
-            except socket.error as e:
-                log("{}: Error during socket connexion: {}".format(self.function.capitalize(), e))
-                if e.errno == errno.ECONNREFUSED:
-                    sock.close()
-                Event().wait(2)
-
-        log("{}: I'm connected.".format(self.function.capitalize()))
-
-        sock.settimeout(None)
-        
-        return sock
+        except socket.error as e:
+            log("Error during socket connexion: {}.".format(e), self.function.capitalize())
+            if e.errno == errno.ECONNREFUSED:
+                sock.close()
+            return 0
 
     def close(self):
 
@@ -65,26 +58,28 @@ class Client(object):
 # --------------------------------------------------------------------------------------------------------------- #
 
 
-class ValveManager(QtCore.QThread):
+class ValveManager(Thread):
+
+    name = "ValveManager"
 
     def __init__(self, rpi_ip_address):
 
-        super(ValveManager, self).__init__()
+        super().__init__()
 
         self.rpi_ip_address = rpi_ip_address
 
         self.valve_queue = Queue()
         self.shutdown = Event()
 
-        self.client = None
+        self.client = Client(func="speaker", rpi_ip_address=self.rpi_ip_address)
 
     def establish_connection(self):
 
-        self.client = Client(function="speaker", rpi_ip_address=self.rpi_ip_address)
+        return self.client.establish_connection()
 
     def run(self):
 
-        log("ValveManager: Running.")
+        log("Running.", self.name)
 
         while not self.shutdown.is_set():
 
@@ -96,7 +91,7 @@ class ValveManager(QtCore.QThread):
         # self.client.socket.send("")
         self.client.close()
 
-        log("ValveManager: DEAD.")
+        log("DEAD.", self.name)
 
     def open(self, time):
 
@@ -113,27 +108,29 @@ class ValveManager(QtCore.QThread):
 # --------------------------------------------------------------------------------------------------------------- #
 
 
-class GripManager(QtCore.QThread):
+class GripManager(Thread):
+
+    name = "GripManager"
 
     def __init__(self, grip_value, grip_queue, rpi_ip_address):
 
-        super(GripManager, self).__init__()
+        super().__init__()
 
         self.grip_value = grip_value
         self.grip_queue = grip_queue
         self.rpi_ip_address = rpi_ip_address
 
-        self.client = None
+        self.client = Client(func="listener", rpi_ip_address=self.rpi_ip_address)
 
         self.shutdown = Event()
 
     def establish_connection(self):
 
-        self.client = Client(function="listener", rpi_ip_address=self.rpi_ip_address)
+        return self.client.establish_connection()
 
     def run(self):
 
-        log("GripManger: Running.")
+        log("Running.", self.name)
 
         while not self.shutdown.is_set():
 
@@ -147,81 +144,11 @@ class GripManager(QtCore.QThread):
 
         self.client.close()
 
-        log("GripManager: DEAD.")
+        log("DEAD.", self.name)
 
     def end(self):
 
         self.shutdown.set()
-
-# --------------------------------------------------------------------------------------------------------------- #
-# ------------------------------------- SOUND ------------------------------------------------------------------- #
-# --------------------------------------------------------------------------------------------------------------- #
-
-
-class SoundManager(QtCore.QThread):
-
-    def __init__(self, n_sound_thread=4):
-
-        super().__init__()
-        self.sound_queue = Queue()
-        self.shutdown = Event()
-        self.n_sound_threads = n_sound_thread
-        self.sound_threads = []
-        for i in range(self.n_sound_threads):
-
-            self.sound_threads.append(SoundPlayer())
-            self.sound_threads[i].start()
-
-    def run(self):
-
-        i = 0
-
-        while not self.shutdown.is_set():
-            sound = self.sound_queue.get()
-            if not self.shutdown.is_set():
-
-                log("Play sound for {} with SoundPlayer {}.".format(sound, i))
-                self.sound_threads[i].sound_queue.put(sound)
-                if i < self.n_sound_threads-1:
-                    i += 1
-                else:
-                    i = 0
-
-        log("SoundManager: DEAD.")
-
-    def play(self, sound):
-
-        self.sound_queue.put(sound)
-
-    def end(self):
-
-        self.shutdown.set()
-        self.sound_queue.put(None)
-
-        for i in range(self.n_sound_threads):
-            self.sound_threads[i].end()
-
-
-class SoundPlayer(QtCore.QThread):
-
-    def __init__(self):
-
-        super().__init__()
-        self.sound_queue = Queue()
-        self.shutdown = Event()
-
-    def run(self):
-
-        while not self.shutdown.is_set():
-
-            sound = self.sound_queue.get()
-            if not self.shutdown.is_set():
-                subprocess.call(["afplay", "sounds/{}.wav".format(sound)])
-
-    def end(self):
-
-        self.shutdown.set()
-        self.sound_queue.put(None)
 
 
 # --------------------------------------------------------------------------------------------------------------- #
@@ -229,7 +156,9 @@ class SoundPlayer(QtCore.QThread):
 # --------------------------------------------------------------------------------------------------------------- #
 
 
-class GripTracker(QtCore.QThread):
+class GripTracker(Thread):
+
+    name = "GripTracker"
 
     def __init__(self, change_queue):
 
@@ -244,20 +173,20 @@ class GripTracker(QtCore.QThread):
 
         while not self.shutdown.is_set():
 
-            log("GripTracker: waiting order.")
+            log("Waiting order.", self.name)
 
             msg = self.go_queue.get()
             if not self.shutdown.is_set():
 
                 self.cancel_signal = False
 
-                log("Grip tracker message: {}".format(msg))
+                log("Received message: {}".format(msg), self.name)
 
                 args = self.change_queue.get()
 
                 if not self.cancel_signal:
 
-                    log("GripTracker: received args =".format(args))
+                    log("Received args =".format(args), self.name)
                     self.handling_function()
 
     def launch(self, handling_function, msg=""):
@@ -270,13 +199,13 @@ class GripTracker(QtCore.QThread):
 
     def cancel(self):
 
-        log("GripTracker: CANCEL.")
+        log("CANCEL.", self.name)
         self.cancel_signal = True
         self.change_queue.put(None)
 
     def end(self):
 
-        log("GripTracker: END.")
+        log("END.", self.name)
         self.shutdown.set()
         self.cancel_signal = True
         self.change_queue.put(None)

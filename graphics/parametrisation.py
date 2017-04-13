@@ -279,7 +279,7 @@ class SliderParameter(object):
         self.slider = QSlider(Qt.Horizontal)
         self.slider.setMinimum(0)
         self.slider.setMaximum(100 // 5)
-        self.slider.setValue(50 // 5)
+        self.slider.setValue(int(initial_value) // 5)
         self.slider.valueChanged.connect(self.change_value)
 
     def change_value(self):
