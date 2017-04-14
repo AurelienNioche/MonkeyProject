@@ -111,7 +111,7 @@ class Interface(QWidget):
     def close_task(self):
 
         self.push_button_run.setEnabled(False)
-        log("Interface: Close task.")
+        log("Close task.", self.name)
 
         self.queues["manager"].put(("interface_close_task",))
 

@@ -6,6 +6,8 @@ from utils.utils import log, today
 
 class DataManager(object):
 
+    name = "DataManager"
+
     def __init__(self, monkey, starting_point="2016-12-01", end_point=today()):
 
         self.db = Database()
@@ -76,7 +78,7 @@ class DataManager(object):
         assert len(all_dates)
         dates = self.select_relevant_dates(all_dates)
 
-        log("[DataManager] N dates: {}.".format(len(dates)))
+        log("[DataManager] N dates: {}.".format(len(dates)), self.name)
 
         return dates
 
@@ -130,7 +132,7 @@ class DataManager(object):
         new_session = []
 
         valid_trials = np.where(np.asarray(error) == "None")[0]
-        log("[DataManager] N valid trials: {}.".format(len(valid_trials)))
+        log("[DataManager] N valid trials: {}.".format(len(valid_trials)), self.name)
 
         for valid_idx in valid_trials:
 
@@ -155,13 +157,13 @@ class DataManager(object):
 
     def run(self):
 
-        log("[DataManager] Import data for {}.".format(self.monkey))
+        log("[DataManager] Import data for {}.".format(self.monkey), self.name)
 
         dates = self.get_dates()
         error, p, x0, x1, choice, session = self.get_errors_p_x0_x1_choices_from_db(dates)
         p, x0, x1, choice, session = self.filter_valid_trials(error, p, x0, x1, choice, session)
 
-        log("[DataManager] Done!")
+        log("[DataManager] Done!", self.name)
 
         return {"p": p, "x0": x0, "x1": x1, "choice": choice, "session": session}
 

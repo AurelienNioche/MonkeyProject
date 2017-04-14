@@ -7,6 +7,8 @@ from utils.utils import log
 
 class Database(object):
 
+    name = "Database"
+
     def __init__(self):
         parameters_folder = path.abspath("{}/../parameters".format(path.dirname(path.abspath(__file__))))
         with open("{}/results_path.json".format(parameters_folder)) as file:
@@ -85,7 +87,7 @@ class Database(object):
         try:
             self.write(query)
         except OperationalError as e:
-            log("Database: Error with query: {}".format(query))
+            log("Database: Error with query: {}".format(query), self.name)
             raise e
 
     def read(self, query):
@@ -95,7 +97,7 @@ class Database(object):
         try:
             self.cursor.execute(query)
         except OperationalError as e:
-            log("Database: Error with query: {}".format(query))
+            log("Database: Error with query: {}".format(query), self.name)
             raise e
 
         content = self.cursor.fetchall()
@@ -147,7 +149,7 @@ class Database(object):
             query = "SELECT {} from `{}` WHERE {}".format(column_name, table_name, conditions)
 
         a = self.read(query)
-        # log("result query", a)
+
         if a:
             a = [i[0] for i in a]
             if len(a) == 1:
