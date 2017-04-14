@@ -310,7 +310,7 @@ def test_difference_expected_value():
                 (1 - sp["{}_p".format(side)]) * sp["{}_x1".format(side)]
         diff.append(exp["left"] - exp["right"])
 
-    log(np.unique(diff))
+    log(np.unique(diff), "Test difference expected value")
 
 
 if __name__ == "__main__":

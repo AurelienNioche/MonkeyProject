@@ -104,7 +104,7 @@ class Manager(Thread):
 
         log("Run.", self.name)
         while not self.shutdown.is_set():
-            log("Waiting for a message.", name=self.name)
+            log("Waiting for a message.", self.name)
             message = self.queues["manager"].get()
             self.handle_message(message)
 
@@ -135,7 +135,7 @@ class Manager(Thread):
 
     def handle_message(self, message):
 
-        log("Received message '{}'.".format(message), name=self.name)
+        log("Received message '{}'.".format(message), self.name)
 
         if message[0] == "close_game_window":
 

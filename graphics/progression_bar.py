@@ -1,7 +1,6 @@
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
-from PyQt5.QtWidgets import QWidget, QGridLayout, QLabel, QSpacerItem, \
-    QProgressBar
+from PyQt5.QtWidgets import QWidget, QGridLayout, QLabel, QSpacerItem, QProgressBar
 
 
 class ProgressionBar(QWidget):
