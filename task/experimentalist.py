@@ -650,8 +650,13 @@ class Manager(Thread):
         self.parameters.pop("save")
 
         if len(self.to_save) < 1:
+            log("No trials to save.", self.name)
             self.current_saving.clear()
             self.data_saved.set()
+            return
+
+        else:
+            log("{} trials to save.".format(len(self.to_save)), self.name)
 
         database = Database()
         summary_table_name = "summary"

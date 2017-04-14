@@ -93,8 +93,9 @@ class GameWindow(QMainWindow):
     def hide(self):
 
         if self.isFullScreen():
+
             self.showMinimized()
-            self.hide()
+            QTimer.singleShot(100, self.hide)
 
         elif self.isVisible():
 
