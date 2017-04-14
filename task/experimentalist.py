@@ -115,6 +115,7 @@ class Manager(Thread):
         log("End program.", self.name)
 
         if self.current_saving.is_set():
+            log("Wait for saving.", self.name)
             self.data_saved.wait()
 
         if self.timer:
@@ -649,7 +650,8 @@ class Manager(Thread):
         self.parameters.pop("save")
 
         if len(self.to_save) < 1:
-            return
+            self.current_saving.clear()
+            self.data_saved.set()
 
         database = Database()
         summary_table_name = "summary"
