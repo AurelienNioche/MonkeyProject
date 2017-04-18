@@ -94,7 +94,7 @@ class DataManager(object):
 
         for idx, date in enumerate(sorted(dates)):
 
-            # print("Dates: ", dates)
+            log("Dates: {}".format(dates), self.name)
             session_table = \
                 self.db.read_column(table_name="summary", column_name='session_table',
                                     monkey=self.monkey, date=date)
@@ -122,8 +122,7 @@ class DataManager(object):
 
         return error, p, x0, x1, choice, session
 
-    @staticmethod
-    def filter_valid_trials(error, p, x0, x1, choice, session):
+    def filter_valid_trials(self, error, p, x0, x1, choice, session):
 
         new_p = {"left": [], "right": []}
         new_x0 = {"left": [], "right": []}

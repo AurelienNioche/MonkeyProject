@@ -152,7 +152,6 @@ def check_progress():
         for key in ProgressAnalyst.control_conditions:
             progress[key] = []
 
-        print(progress)
         for session_id in np.unique(data["session"]):
 
             session_p = dict()
@@ -185,7 +184,7 @@ def check_progress():
             plt.xticks(np.arange(len(np.unique(data["session"]))) + 1)
             plt.ylim([-0.01, 1.01])
             plt.ylabel("Success rate")
-            plt.xlabel("Day")
+            plt.xlabel("Session")
 
         box = ax.get_position()
         ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
