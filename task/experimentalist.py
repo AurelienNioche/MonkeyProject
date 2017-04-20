@@ -28,6 +28,7 @@ class Manager(Thread):
         self.communicant = communicant
 
         self.grip_tracker = GripTracker(
+            message_queue=self.queues["manager"],
             change_queue=self.queues["grip_queue"]
         )
 
@@ -97,6 +98,7 @@ class Manager(Thread):
     # ------------------------ INIT ------------------------------------- #
 
     def initialize(self):
+
         self.grip_tracker.start()
         self.sound_manager.start()
 
@@ -176,6 +178,20 @@ class Manager(Thread):
 
             log("choice right.", self.name)
             self.decide("right")
+
+        elif message[0] == "grip_tracker":
+
+            command = message[1]
+            log("Received from GripTracker: '{}'.".format(command), self.name)
+
+            if command == "release_before_end_of_fixation_time":
+                self.release_before_end_of_fixation_time()
+
+            elif command == "grasp_before_stimuli_display":
+                self.grasp_before_stimuli_display()
+
+            elif command == "show_results":
+                self.show_results()
 
         else:
 
@@ -370,23 +386,19 @@ class Manager(Thread):
         # Otherwise wait for him to do it
         elif self.queues["grip_value"].value == 0:
 
-            log("wait for grasping.", self.name)
+            log("Wait for grasping.", self.name)
 
-            self.grip_tracker.launch(
-                handling_function=self.grasp_before_stimuli_display,
-                msg="Go signal from wait_for_grasping")
+            self.grip_tracker.launch(msg="grasp_before_stimuli_display")
 
         else:
             raise Exception("Something's wrong with the GripManager.")
 
     def grasp_before_stimuli_display(self):
 
-        log("grasp before stimuli display.", self.name)
+        log("Grasp before stimuli display.", self.name)
 
         # Observe if the user holds the grip for a certain time, otherwise do what is appropriate
-        self.grip_tracker.launch(
-            handling_function=self.release_before_end_of_fixation_time,
-            msg="go signal from grasp before stimuli display")
+        self.grip_tracker.launch(msg="release_before_end_of_fixation_time")
 
         # Launch a new timer: if user holds the grip, show the stimuli
         self.fixation_time = np.random.randint(
@@ -437,7 +449,7 @@ class Manager(Thread):
         self.timer.start()
 
         # Launch grip detector: If grip state change, results will be displayed
-        self.grip_tracker.launch(handling_function=self.show_results, msg="Add results if grip touched")
+        self.grip_tracker.launch(msg="show_results")
 
         # For future measure of time for coming back to the grip
         self.time_to_come_back_to_the_grip = time()

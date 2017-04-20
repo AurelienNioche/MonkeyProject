@@ -293,7 +293,7 @@ class GameWindow(QMainWindow):
         elif self.fake_grip_queue and event.key() == Qt.Key_P:
 
             if not event.isAutoRepeat():
-                log("GameWindow: PRESS 'P'.", self.name)
+                log("PRESS 'P'.", self.name)
 
                 self.fake_grip_queue.put(1)
                 self.fake_grip_value.value = 1

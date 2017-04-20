@@ -160,13 +160,13 @@ class GripTracker(Thread):
 
     name = "GripTracker"
 
-    def __init__(self, change_queue):
+    def __init__(self, change_queue, message_queue):
 
         super().__init__()
         self.go_queue = Queue()
         self.change_queue = change_queue
-        self.cancel_signal = True
-        self.handling_function = None
+        self.message_queue = message_queue
+        self.cancel_signal = Event()
         self.shutdown = Event()
 
     def run(self):
@@ -174,39 +174,35 @@ class GripTracker(Thread):
         while not self.shutdown.is_set():
 
             log("Waiting order.", self.name)
-
             msg = self.go_queue.get()
+
             if not self.shutdown.is_set():
-
-                self.cancel_signal = False
-
-                log("Received message: {}".format(msg), self.name)
-
+                log("Received order to deliver message if change in grip state: '{}'.".format(msg), self.name)
                 args = self.change_queue.get()
 
-                if not self.cancel_signal:
+                if not self.cancel_signal.is_set():
+                    log("Received event in change queue: '{}'.".format(args), self.name)
+                    self.message_queue.put(("grip_tracker", msg))
 
-                    log("Received args =".format(args), self.name)
-                    self.handling_function()
+        log("I'm DEAD.", self.name)
 
-    def launch(self, handling_function, msg=""):
+    def launch(self, msg):
 
         while not self.change_queue.empty():
             self.change_queue.get()
-
-        self.handling_function = handling_function
+        self.cancel_signal.clear()
         self.go_queue.put(msg)
 
     def cancel(self):
 
         log("CANCEL.", self.name)
-        self.cancel_signal = True
+        self.cancel_signal.set()
         self.change_queue.put(None)
 
     def end(self):
 
         log("END.", self.name)
         self.shutdown.set()
-        self.cancel_signal = True
+        self.cancel_signal.set()
         self.change_queue.put(None)
         self.go_queue.put(None)
