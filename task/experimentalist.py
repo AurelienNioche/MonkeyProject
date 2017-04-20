@@ -1,6 +1,6 @@
 from collections import OrderedDict
 from datetime import date
-from multiprocessing import Queue, Value, Event, cpu_count
+from multiprocessing import Event
 from threading import Thread
 from time import time
 import json
