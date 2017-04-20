@@ -250,11 +250,11 @@ class GameWindow(QMainWindow):
 
             if self.frames["left"].ellipse.contains(event.pos()):
                 log("CLICK LEFT.", self.name)
-                self.queues["manager"].put(("game_left", ))
+                self.queues["manager"].put(("game", "left", ))
 
             if self.frames["right"].ellipse.contains(QPoint(event.x() - self.width()*(4/7), event.y())):
                 log("CLICK RIGHT.", self.name)
-                self.queues["manager"].put(("game_right", ))
+                self.queues["manager"].put(("game", "right", ))
 
             else:
                 pass
@@ -278,7 +278,7 @@ class GameWindow(QMainWindow):
 
             if not event.isAutoRepeat():
                 log("PRESS 'PLAY'.", self.name)
-                self.queues["manager"].put(("game_play", ))
+                self.queues["manager"].put(("game", "play", ))
 
         elif self.control_modifier and event.key() == Qt.Key_X:
 
@@ -327,7 +327,7 @@ class GameWindow(QMainWindow):
     def closeEvent(self, event):
 
         log("Received demand for closing window.", self.name)
-        self.queues["manager"].put(("close_game_window", ))
+        self.queues["manager"].put(("game", "close", ))
         if self.standalone:
             log("Demand accepted for closing window.", self.name)
             event.accept()
