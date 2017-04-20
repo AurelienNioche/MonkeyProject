@@ -87,7 +87,7 @@ class Interface(QWidget):
             log("Run task.", self.name)
 
             # Communicate parameters through the queue
-            self.queues["manager"].put(("interface_run", self.parameters))
+            self.queues["manager"].put(("interface", "run", self.parameters))
 
     def show_trial_counter(self):
 
@@ -113,7 +113,7 @@ class Interface(QWidget):
         self.push_button_run.setEnabled(False)
         log("Close task.", self.name)
 
-        self.queues["manager"].put(("interface_close_task",))
+        self.queues["manager"].put(("interface", "close_task",))
 
     def prepare_next_run(self):
 
@@ -151,7 +151,7 @@ class Interface(QWidget):
 
             log("Close window", self.name)
             self.shutdown.set()
-            self.queues["manager"].put(("interface_close_window",))
+            self.queues["manager"].put(("interface", "close",))
 
             self.already_asked_for_saving_parameters = 1
 

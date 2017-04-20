@@ -1,14 +1,14 @@
 from collections import OrderedDict
 from datetime import date
 from multiprocessing import Queue, Value, Event, cpu_count
-from threading import Timer, Thread
+from threading import Thread
 from time import time
 import json
 from os import path
 import numpy as np
 
 from data_management.database import Database
-from task.ressources import GripManager, ValveManager, GripTracker
+from task.ressources import GripManager, ValveManager, GripTracker, Timer
 from task.sound_manager import SoundManager
 from task.stimuli_finder import StimuliFinder
 from utils.utils import log
@@ -75,7 +75,7 @@ class Manager(Thread):
 
         # -------- TIME & TIMERS ----------- #
 
-        self.timer = None
+        self.timer = Timer(message_queue=self.queues["manager"], name="main")
         self.animation_timers = []
 
         self.time_to_decide = -1
@@ -101,6 +101,12 @@ class Manager(Thread):
 
         self.grip_tracker.start()
         self.sound_manager.start()
+        self.timer.start()
+
+        for i in range(self.stimuli_finder.gauge_maximum):
+            t = Timer(message_queue=self.queues["manager"], name="animation{}".format(i))
+            t.start()
+            self.animation_timers.append(t)
 
     def run(self):
 
@@ -120,10 +126,9 @@ class Manager(Thread):
             log("Wait for saving.", self.name)
             self.data_saved.wait()
 
-        if self.timer:
-            self.timer.cancel()
+        self.timer.end()
         for timer in self.animation_timers:
-            timer.cancel()
+            timer.end()
 
         self.grip_tracker.end()
         self.grip_manager.end()
@@ -140,62 +145,107 @@ class Manager(Thread):
 
         log("Received message '{}'.".format(message), self.name)
 
-        if message[0] == "close_game_window":
+        if message[0] == "game":
 
-            log("Game close window.", self.name)
-            self.end_game()
+            command = message[1]
 
-        elif message[0] == "interface_close_task":
+            if command == "left":
+                log("Choice left.", self.name)
+                self.decide("left")
 
-            log("Interface close task.", self.name)
-            self.end_game()
+            elif command == "right":
+                log("Choice right.", self.name)
+                self.decide("right")
 
-        elif message[0] == "interface_close_window":
+            elif command == "play":
+                log("Play.", self.name)
+                self.play_game()
 
-            log("Interface close window.", self.name)
-            self.die()
-            return
+            elif command == "close":
+                log("Close game window.", self.name)
+                self.end_game()
 
-        elif message[0] == "interface_run":
-
-            log("Interface run.", self.name)
-            # Get parameters from graphic interface
-            self.parameters = message[1]
-
-            self.prepare_game()
-
-        elif message[0] == "game_play":
-
-            log("Game play.", self.name)
-            self.play_game()
-
-        elif message[0] == "game_left":
-
-            log("choice left.", self.name)
-            self.decide("left")
-
-        elif message[0] == "game_right":
-
-            log("choice right.", self.name)
-            self.decide("right")
+            else:
+                log("ERROR: Message received from GameWindow not understood.", self.name)
+                raise Exception("{}: Received message '{}' but did'nt expected anything like that."
+                                .format(self.name, message))
 
         elif message[0] == "grip_tracker":
 
+            if not self.grip_tracker.is_cancelled():
+
+                command = message[1]
+                log("Received from GripTracker: '{}'.".format(command), self.name)
+
+                if command == "release_before_end_of_fixation_time":
+                    self.release_before_end_of_fixation_time()
+
+                elif command == "grasp_before_stimuli_display":
+                    self.grasp_before_stimuli_display()
+
+                elif command == "show_results":
+                    self.show_results()
+
+                else:
+                    log("ERROR: Message received from GripTracker not understood.", self.name)
+                    raise Exception("{}: Received message '{}' but did'nt expected anything like that."
+                                    .format(self.name, message))
+
+        elif message[0] == "timer":
+
             command = message[1]
-            log("Received from GripTracker: '{}'.".format(command), self.name)
+            kwargs = message[2]
+            log("Received from Timer: '{}' with kwargs '{}'.".format(command, kwargs), self.name)
 
-            if command == "release_before_end_of_fixation_time":
-                self.release_before_end_of_fixation_time()
+            if command == "begin_new_block" and not self.timer.is_cancelled():
+                self.begin_new_block()
 
-            elif command == "grasp_before_stimuli_display":
-                self.grasp_before_stimuli_display()
+            elif command == "show_stimuli" and not self.timer.is_cancelled():
+                self.show_stimuli()
 
-            elif command == "show_results":
-                self.show_results()
+            elif command == "did_not_came_back_to_the_grip" and not self.timer.is_cancelled():
+                self.did_not_came_back_to_the_grip()
+
+            elif command == "did_not_take_decision" and not self.timer.is_cancelled():
+                self.did_not_take_decision()
+
+            elif command == "inter_trial" and not self.timer.is_cancelled():
+                self.inter_trial()
+
+            elif command == "end_trial" and not self.timer.is_cancelled():
+                self.end_trial()
+
+            elif command == "set_gauge_quantity":
+                self.set_gauge_quantity(**kwargs)
+
+            else:
+                log("ERROR: Message received from Timer not understood.", self.name)
+                raise Exception("{}: Received message '{}' but did'nt expected anything like that."
+                                .format(self.name, message))
+
+        elif message[0] == "interface":
+
+            command = message[1]
+            if command == "close_task":
+                log("Interface close task.", self.name)
+                self.end_game()
+
+            elif command == "close":
+                log("Interface close window.", self.name)
+                return
+
+            elif command == "run":
+
+                log("Interface run.", self.name)
+                parameters = message[2]
+                self.prepare_game(parameters=parameters)
+            else:
+                log("ERROR: Message received from Interface not understood.", self.name)
+                raise Exception("{}: Received message '{}' but did'nt expected anything like that."
+                                .format(self.name, message))
 
         else:
-
-            log("ERROR: msg from graphics not understood.", self.name)
+            log("ERROR: Message not understood.", self.name)
             raise Exception("{}: Received message '{}' but did'nt expected anything like that."
                             .format(self.name, message))
 
@@ -208,7 +258,9 @@ class Manager(Thread):
 
 # ------------------------------------ START AND END GAME ---------------------------------------------------------- #
 
-    def prepare_game(self):
+    def prepare_game(self, parameters):
+
+        self.parameters = parameters
 
         # Show 'trial counter' on interface window
         self.ask_interface(("show_progression_bar", ))
@@ -278,8 +330,7 @@ class Manager(Thread):
         self.grip_tracker.cancel()
 
         # Stop all the timers
-        if self.timer:
-            self.timer.cancel()
+        self.timer.cancel()
         for timer in self.animation_timers:
             timer.cancel()
 
@@ -316,8 +367,7 @@ class Manager(Thread):
 
         # After time for rewarding, launch new block
         reward_time = self.parameters["reward_time"] / 1000
-        self.timer = Timer(reward_time, self.begin_new_block)
-        self.timer.start()
+        self.timer.launch(time=reward_time, msg="begin_new_block")
 
         # Launch vending animation
         self.venting_gauge_animation()
@@ -403,8 +453,8 @@ class Manager(Thread):
         # Launch a new timer: if user holds the grip, show the stimuli
         self.fixation_time = np.random.randint(
             self.parameters["fixation_time"][0], self.parameters["fixation_time"][1]) / 1000
-        self.timer = Timer(self.fixation_time, self.show_stimuli)
-        self.timer.start()
+
+        self.timer.launch(time=self.fixation_time, msg="show_stimuli")
 
     def show_stimuli(self):
 
@@ -418,8 +468,7 @@ class Manager(Thread):
 
         # Launch new timer: after maximum time to decide, if no action took place, do what is appropriated.
         max_decision_time = self.parameters["max_decision_time"] / 1000
-        self.timer = Timer(max_decision_time, self.did_not_take_decision)
-        self.timer.start()
+        self.timer.launch(msg="did_not_take_decision", time=max_decision_time)
 
         # For future measure of time for choosing
         self.time_to_decide = time()
@@ -445,8 +494,7 @@ class Manager(Thread):
 
         # Launch new timer: limit for coming back to the grip
         max_return_time = self.parameters["max_return_time"] / 1000
-        self.timer = Timer(max_return_time, self.did_not_came_back_to_the_grip)
-        self.timer.start()
+        self.timer.launch(msg="did_not_came_back_to_the_grip", time=max_return_time)
 
         # Launch grip detector: If grip state change, results will be displayed
         self.grip_tracker.launch(msg="show_results")
@@ -472,8 +520,7 @@ class Manager(Thread):
 
         # Launch new timer: after time for displaying results, launch inter-trial
         results_display_time = self.parameters["result_display_time"] / 1000
-        self.timer = Timer(results_display_time, self.inter_trial)
-        self.timer.start()
+        self.timer.launch(msg="inter_trial", time=results_display_time)
 
         # Start animation for filling up the gauge
         self.filling_gauge_animation()
@@ -490,8 +537,8 @@ class Manager(Thread):
             self.parameters["inter_trial_time"][0],
             self.parameters["inter_trial_time"][1])\
             / 1000
-        self.timer = Timer(self.inter_trial_time, self.end_trial)
-        self.timer.start()
+
+        self.timer.launch(msg="end_trial", time=self.inter_trial_time)
 
 # ----------------------------------------- ERRORS --------------------------------------------------------------- #
 
@@ -507,8 +554,7 @@ class Manager(Thread):
 
         # After punishment time, go to end of trial
         punishment_time = self.parameters["punishment_time"] / 1000
-        self.timer = Timer(punishment_time, self.end_trial)
-        self.timer.start()
+        self.timer.launch(msg="end_trial", time=punishment_time)
 
     def release_before_end_of_fixation_time(self):
 
@@ -555,18 +601,15 @@ class Manager(Thread):
             sequence = []
             sound = None
 
-        self.animation_timers = []
-
-        for i in sequence:
-            timer = Timer(
-                time_per_unity * np.absolute(i), self.set_gauge_quantity,
+        for i, j in enumerate(sequence):
+            self.animation_timers[i].launch(
+                time=time_per_unity * np.absolute(j),
+                msg="set_gauge_quantity",
                 kwargs={
-                    "quantity": self.gauge_level + i,
+                    "quantity": self.gauge_level + j,
                     "sound": sound
                 }
             )
-            timer.start()
-            self.animation_timers.append(timer)
 
         self.gauge_level += reward
 
@@ -588,21 +631,19 @@ class Manager(Thread):
         else:
             sequence = []
 
-        self.animation_timers = []
+        for i, j in enumerate(sequence):
+            print(i)
 
-        for i in sequence:
-
-            timer = Timer(
-                time_per_unity * np.absolute(i), self.set_gauge_quantity,
+            self.animation_timers[i].launch(
+                time=time_per_unity * np.absolute(j),
+                msg="set_gauge_quantity",
                 kwargs=
                 {
-                    "quantity": self.gauge_level - i,
+                    "quantity": self.gauge_level - j,
                     "sound": "reward",
                     "water": True
                 }
             )
-            timer.start()
-            self.animation_timers.append(timer)
 
     def set_gauge_quantity(self, **kwargs):
 
