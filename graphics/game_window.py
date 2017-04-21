@@ -1,8 +1,11 @@
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
+from PyQt5.QtMultimedia import *
 from collections import OrderedDict
 from multiprocessing import Queue, Event
 import sys
+from os import path
+from time import time
 
 from utils.utils import log
 from graphics.generic import Frame
@@ -14,6 +17,7 @@ from graphics.pause import Pause
 class GameWindow(QMainWindow):
 
     name = "GameWindow"
+    dir_path = path.dirname(path.realpath(__file__))
     
     init_x = 100
     init_y = 100
@@ -56,9 +60,36 @@ class GameWindow(QMainWindow):
         self.detect_choices = Event()
         self.detect_pause_break = Event()
 
+        self.sounds = self.prepare_sounds()
+
+        self.players = [QMediaPlayer() for i in range(6)]
+        self.current_player = 0
+
         self.initialize()
 
 # ------------------------------------------------------ INITIALIZE ------------------------------------------------ #
+
+    def prepare_sounds(self):
+
+        sounds = dict()
+        sounds_names = ["choice", "loss", "reward", "punishment", "reward", "start"]
+
+        for sound_name in sounds_names:
+
+            sound_path = path.abspath("{}/../sounds/{}.wav".format(self.dir_path, sound_name))
+            media = QMediaContent(QUrl.fromLocalFile(sound_path))
+            sounds[sound_name] = media
+
+        return sounds
+
+    def play_sound(self, sound):
+        
+        a = time()
+        self.players[self.current_player].setMedia(self.sounds[sound])
+        b = time()
+        print(b-a)
+        self.players[self.current_player].play()
+        self.current_player = (self.current_player + 1) % 6
 
     def initialize(self):
 
@@ -224,9 +255,12 @@ class GameWindow(QMainWindow):
 
         self.frames["gauge"].set_color(color=color)
 
-    def set_gauge_quantity(self, **kwargs):
+    def set_gauge_quantity(self, quantity, sound):
 
-        self.frames["gauge"].set_quantity(quantity=kwargs["quantity"])
+        if sound:
+            self.play_sound(sound)
+
+        self.frames["gauge"].set_quantity(quantity=quantity)
 
 # ------------------------------------------------ FAKE GRIP ------------------------------------------------------- #
 
@@ -250,10 +284,12 @@ class GameWindow(QMainWindow):
             if self.frames["left"].ellipse.contains(event.pos()):
                 log("CLICK LEFT.", self.name)
                 self.queues["manager"].put(("game", "left", ))
+                self.play_sound("choice")
 
             if self.frames["right"].ellipse.contains(QPoint(event.x() - self.width()*(4/7), event.y())):
                 log("CLICK RIGHT.", self.name)
                 self.queues["manager"].put(("game", "right", ))
+                self.play_sound("choice")
 
             else:
                 pass
@@ -277,6 +313,7 @@ class GameWindow(QMainWindow):
 
             if not event.isAutoRepeat():
                 log("PRESS 'PLAY'.", self.name)
+                self.play_sound("start")
                 self.queues["manager"].put(("game", "play", ))
 
         elif self.control_modifier and event.key() == Qt.Key_X:

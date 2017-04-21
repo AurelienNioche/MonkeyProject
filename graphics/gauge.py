@@ -1,6 +1,7 @@
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
+from PyQt5.QtMultimedia import *
 
 from graphics.generic import Colors
 
@@ -114,7 +115,6 @@ class Gauge(QWidget):
     def set_quantity(self, quantity):
 
         self.token_number = int(quantity)
-        self.repaint()
 
     def set_color(self, color):
 

@@ -1,0 +1,1 @@
+systemctl disable /home/pi/raspi_manager.service

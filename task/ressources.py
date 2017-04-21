@@ -1,5 +1,6 @@
-from multiprocessing import Event, Queue
-from threading import Thread
+from multiprocessing import Queue
+from threading import Thread, Event
+from datetime import datetime as dt
 import socket
 import errno
 
@@ -13,21 +14,11 @@ from utils.utils import log
 
 class Client(object):
 
-    def __init__(self, func, rpi_ip_address):
+    def __init__(self, ip_address, port):
 
-        self.function = func
-
-        if self.function == "speaker":
-
-            self.server_port = 1555
-
-        else:
-
-            self.server_port = 1556
-
-        self.server_host = rpi_ip_address
-
+        self.server_address = (ip_address, port)
         self.socket = None
+        self.connected = False
 
     def establish_connection(self):
 
@@ -36,21 +27,34 @@ class Client(object):
 
         try:
 
-            sock.connect((self.server_host, self.server_port))
+            sock.connect(self.server_address)
             sock.settimeout(None)
-            log("I'm connected.", self.function.capitalize())
+            log("I'm connected.", "RaspiManager")
             self.socket = sock
+            self.connected = True
             return 1
 
         except socket.error as e:
-            log("Error during socket connexion: {}.".format(e), self.function.capitalize())
+            log("Error during socket connexion: {}.".format(e), "RaspiManager")
             if e.errno == errno.ECONNREFUSED:
                 sock.close()
             return 0
 
+    def send(self, string):
+
+        self.socket.send('{:*<5}'.format(string).encode())
+
+    def recv(self):
+
+        return self.socket.recv(1)
+
     def close(self):
 
         self.socket.close()
+
+    def is_connected(self):
+
+        return self.connected
 
 
 # --------------------------------------------------------------------------------------------------------------- #
@@ -62,20 +66,14 @@ class ValveManager(Thread):
 
     name = "ValveManager"
 
-    def __init__(self, rpi_ip_address):
+    def __init__(self, client):
 
         super().__init__()
-
-        self.rpi_ip_address = rpi_ip_address
 
         self.valve_queue = Queue()
         self.shutdown = Event()
 
-        self.client = Client(func="speaker", rpi_ip_address=self.rpi_ip_address)
-
-    def establish_connection(self):
-
-        return self.client.establish_connection()
+        self.client = client
 
     def run(self):
 
@@ -86,9 +84,8 @@ class ValveManager(Thread):
             v = self.valve_queue.get()
             if not self.shutdown.is_set():
 
-                self.client.socket.send("{:4d}".format(v).encode())
+                self.client.send("v{:4d}".format(v))
 
-        # self.client.socket.send("")
         self.client.close()
 
         log("DEAD.", self.name)
@@ -112,35 +109,37 @@ class GripManager(Thread):
 
     name = "GripManager"
 
-    def __init__(self, grip_value, grip_queue, rpi_ip_address):
+    def __init__(self, grip_value, grip_queue, track_signal, client):
 
         super().__init__()
 
         self.grip_value = grip_value
         self.grip_queue = grip_queue
-        self.rpi_ip_address = rpi_ip_address
+        self.track_signal = track_signal
 
-        self.client = Client(func="listener", rpi_ip_address=self.rpi_ip_address)
+        self.client = client
 
         self.shutdown = Event()
-
-    def establish_connection(self):
-
-        return self.client.establish_connection()
 
     def run(self):
 
         log("Running.", self.name)
 
+        waiting_event = Event()
+
         while not self.shutdown.is_set():
 
-            response = self.client.socket.recv(1)
+            self.track_signal.wait()
+            self.client.send("g")  # Go signal
+            response = self.client.recv()
             if response:
 
                 if int(response) != self.grip_value.value:
                     self.grip_queue.put(int(response))
 
                 self.grip_value.value = int(response)
+
+            waiting_event.wait(0.01)
 
         self.client.close()
 
@@ -149,6 +148,14 @@ class GripManager(Thread):
     def end(self):
 
         self.shutdown.set()
+
+    def get_grip_state(self):
+
+        self.client.send("g")  # Go signal
+        response = self.client.recv()
+        if response:
+            self.grip_value.value = int(response)
+            return response
 
 
 # --------------------------------------------------------------------------------------------------------------- #
@@ -168,6 +175,8 @@ class GripTracker(Thread):
         self.message_queue = message_queue
         self.cancel_signal = Event()
         self.shutdown = Event()
+        self.waiting = Event()
+        self.cancelled = Event()
 
     def run(self):
 
@@ -177,12 +186,20 @@ class GripTracker(Thread):
             msg = self.go_queue.get()
 
             if not self.shutdown.is_set():
-                log("Received order to deliver message if change in grip state: '{}'.".format(msg), self.name)
+
+                log("If change in grip state, I will deliver message '{}'.".format(msg), self.name)
+
+                self.waiting.set()
                 args = self.change_queue.get()
+                self.waiting.clear()
 
                 if not self.cancel_signal.is_set():
+
                     log("Received event in change queue: '{}'.".format(args), self.name)
                     self.message_queue.put(("grip_tracker", msg))
+
+                else:
+                    self.cancelled.set()
 
         log("I'm DEAD.", self.name)
 
@@ -190,14 +207,20 @@ class GripTracker(Thread):
 
         while not self.change_queue.empty():
             self.change_queue.get()
+
         self.cancel_signal.clear()
         self.go_queue.put(msg)
 
     def cancel(self):
 
         log("CANCEL.", self.name)
+
         self.cancel_signal.set()
-        self.change_queue.put(None)
+
+        if self.waiting.is_set():
+            self.change_queue.put(None)
+            self.cancelled.wait()
+            self.cancelled.clear()
 
     def end(self):
 
@@ -227,37 +250,61 @@ class Timer(Thread):
         self.message_queue = message_queue
         self.cancel_signal = Event()
         self.wait_signal = Event()
+        self.cancelled = Event()
         self.shutdown = Event()
+        self.waiting = Event()
+
+        self.msg, self.ts = None, None
 
     def run(self):
 
         while not self.shutdown.is_set():
 
             log("Waiting order.", self.name)
+
             msg, time, kwargs = self.go_queue.get()
 
             if not self.shutdown.is_set():
-                log("Received order to deliver message '{}' with kwargs '{}' after {} seconds."
-                    .format(msg, kwargs, time), self.name)
+
+                log("ORDER message '{}' with ts '{}'.".format(msg, self.ts), self.name)
+
+                self.waiting.set()
                 self.wait_signal.wait(timeout=time)
+                self.waiting.clear()
+
+                log("RELEASED WITH MESSAGE '{}' with ts '{}'.".format(msg, self.ts), self.name)
 
                 if not self.cancel_signal.is_set():
-                    log("Time elapsed.", self.name)
-                    self.message_queue.put(("timer", msg, kwargs))
+                    log("RUN message '{}' with ts '{}'.".format(msg, self.ts), self.name)
+                    self.message_queue.put(("timer", msg, kwargs, self.ts))
+
+                else:
+                    log("CANCELLED message '{}' with ts '{}'.".format(msg, self.ts), self.name)
+                    self.cancelled.set()
 
         log("I'm DEAD.", self.name)
 
-    def launch(self, msg, time, kwargs=None):
+    def launch(self, msg, time, kwargs=None, debug=None):
+
+        ts = dt.utcnow()
+        self.msg, self.ts = msg, ts
+
+        log("LAUNCH with message '{}' and ts '{}' /// DEBUG: .".format(self.msg, self.ts, debug), self.name)
 
         self.cancel_signal.clear()
         self.wait_signal.clear()
         self.go_queue.put((msg, time, kwargs))
 
-    def cancel(self):
+    def cancel(self, debug=None):
 
-        log("CANCEL.", self.name)
+        log("CANCEL with message '{}' and ts '{}' /// DEBUG: .".format(self.msg, self.ts, debug), self.name)
         self.cancel_signal.set()
-        self.wait_signal.set()
+
+        if self.waiting.is_set():
+
+            self.wait_signal.set()
+            self.cancelled.wait()
+            self.cancelled.clear()
 
     def end(self):
 

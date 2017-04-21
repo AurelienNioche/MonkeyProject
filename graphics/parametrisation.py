@@ -2,6 +2,7 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from collections import OrderedDict
 import json
+from os import path
 
 
 class ParametersContainer(QWidget):
@@ -15,8 +16,9 @@ class ParametersContainer(QWidget):
 
         self.parameters = OrderedDict()
 
-        with open("parameters/parameters.json") as param_file:
+        dir_path = path.dirname(path.realpath(__file__))
 
+        with open("{}/../parameters/parameters.json".format(dir_path)) as param_file:
             param = json.load(param_file)
 
         self.parameters["initial_stock"] = \

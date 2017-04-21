@@ -1,6 +1,7 @@
 import json
 import sys
 from multiprocessing import Queue, Event
+from os import path
 
 from PyQt5.QtWidgets import QWidget, QGridLayout, QPushButton, QMessageBox, QApplication
 
@@ -15,6 +16,7 @@ from graphics.generic import Communicant
 class Interface(QWidget):
 
     name = "Interface"
+    dir_path = path.dirname(path.realpath(__file__))
 
     def __init__(self, communicant, queues, shutdown):
 
@@ -36,7 +38,7 @@ class Interface(QWidget):
         # noinspection PyUnresolvedReferences
         self.push_button_run.clicked.connect(self.run)
 
-        with open("parameters/parameters.json") as param_file:
+        with open("{}/../parameters/parameters.json".format(self.dir_path)) as param_file:
             self.parameters = json.load(param_file)
 
         self.error = 0
@@ -134,7 +136,7 @@ class Interface(QWidget):
 
         if not self.already_asked_for_saving_parameters:
 
-            with open("parameters/parameters.json") as param_file:
+            with open("{}/../parameters/parameters.json".format(self.dir_path)) as param_file:
                 old_param = json.load(param_file)
 
             if old_param != self.parameters:
@@ -193,6 +195,7 @@ class Interface(QWidget):
             self.game_window.show_results()
 
         elif message[0] == "show_black_screen":
+            # self.game_window.player["punishment"].play()
             self.game_window.show_black_screen()
 
         elif message[0] == "show_choice":
@@ -214,14 +217,15 @@ class Interface(QWidget):
         elif message[0] == "set_gauge_quantity_and_color":
 
             level, color = message[1:3]
-            self.game_window.set_gauge_quantity(quantity=level)
+            self.game_window.set_gauge_quantity(quantity=level, sound=None)
             self.game_window.set_gauge_color(color=color)
             self.game_window.frames["gauge"].repaint()
 
         elif message[0] == "set_gauge_quantity":
 
             level = message[1]
-            self.game_window.set_gauge_quantity(quantity=level)
+            sound = message[2]
+            self.game_window.set_gauge_quantity(quantity=level, sound=sound)
             self.game_window.frames["gauge"].repaint()
 
         elif message[0] == "set_gauge_color":
@@ -264,8 +268,9 @@ if __name__ == "__main__":
 
     app = QApplication(sys.argv)
     c = Communicant()
-    q = {"graphic": Queue()}
-    window = Interface(queues=q, communicant=c)
+    q = {"graphic": Queue(), "manager": Queue()}
+    s = Event()
+    window = Interface(queues=q, communicant=c, shutdown=s)
     window.show()
 
     sys.exit(app.exec_())

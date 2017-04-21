@@ -8,8 +8,7 @@ from os import path
 import numpy as np
 
 from data_management.database import Database
-from task.ressources import GripManager, ValveManager, GripTracker, Timer
-from task.sound_manager import SoundManager
+from task.ressources import GripManager, ValveManager, GripTracker, Timer, Client
 from task.stimuli_finder import StimuliFinder
 from utils.utils import log
 
@@ -27,6 +26,8 @@ class Manager(Thread):
         self.shutdown = shutdown
         self.communicant = communicant
 
+        self.tracking_signal = Event()
+
         self.grip_tracker = GripTracker(
             message_queue=self.queues["manager"],
             change_queue=self.queues["grip_queue"]
@@ -37,17 +38,15 @@ class Manager(Thread):
         # Get IP address of the RPi
         parameters_folder = path.abspath("{}/../parameters".format(path.dirname(path.abspath(__file__))))
         with open("{}/raspberry_pi.json".format(parameters_folder)) as file:
-            rpi_ip_address = json.load(file)["ip_address"]
+            rpi_parameters = json.load(file)
+
+        self.client = Client(ip_address=rpi_parameters["ip_address"], port=rpi_parameters["port"])
 
         self.grip_manager = GripManager(
             grip_value=self.queues["grip_value"], grip_queue=self.queues["grip_queue"],
-            rpi_ip_address=rpi_ip_address)
+            client=self.client, track_signal=self.tracking_signal)
 
-        self.valve_manager = ValveManager(rpi_ip_address=rpi_ip_address)
-
-        # -------- SOUND --------- #
-
-        self.sound_manager = SoundManager(n_sound_thread=self.n_sound_thread)
+        self.valve_manager = ValveManager(client=self.client)
 
         # -------- PARAMETERS --------- #
 
@@ -72,6 +71,7 @@ class Manager(Thread):
 
         self.current_saving = Event()
         self.data_saved = Event()
+        self.waiting_event = Event()
 
         # -------- TIME & TIMERS ----------- #
 
@@ -100,7 +100,6 @@ class Manager(Thread):
     def initialize(self):
 
         self.grip_tracker.start()
-        self.sound_manager.start()
         self.timer.start()
 
         for i in range(self.stimuli_finder.gauge_maximum):
@@ -133,7 +132,6 @@ class Manager(Thread):
         self.grip_tracker.end()
         self.grip_manager.end()
         self.valve_manager.end()
-        self.sound_manager.end()
 
         self.ask_interface(("close_all_windows",))
 
@@ -142,8 +140,6 @@ class Manager(Thread):
     # ------------------------ HANDLE MESSAGE --------------------------- #
 
     def handle_message(self, message):
-
-        log("Received message '{}'.".format(message), self.name)
 
         if message[0] == "game":
 
@@ -166,7 +162,7 @@ class Manager(Thread):
                 self.end_game()
 
             else:
-                log("ERROR: Message received from GameWindow not understood.", self.name)
+                log("ERROR: Message received from GameWindow not understood: '{}'.".format(message), self.name)
                 raise Exception("{}: Received message '{}' but did'nt expected anything like that."
                                 .format(self.name, message))
 
@@ -187,7 +183,7 @@ class Manager(Thread):
                     self.show_results()
 
                 else:
-                    log("ERROR: Message received from GripTracker not understood.", self.name)
+                    log("ERROR: Message received from GripTracker not understood: '{}'.".format(message), self.name)
                     raise Exception("{}: Received message '{}' but did'nt expected anything like that."
                                     .format(self.name, message))
 
@@ -195,7 +191,8 @@ class Manager(Thread):
 
             command = message[1]
             kwargs = message[2]
-            log("Received from Timer: '{}' with kwargs '{}'.".format(command, kwargs), self.name)
+            ts = message[3]
+            log("Received from Timer: '{}' with kwargs '{}' and ts '{}'.".format(command, kwargs, ts), self.name)
 
             if command == "begin_new_block" and not self.timer.is_cancelled():
                 self.begin_new_block()
@@ -219,7 +216,7 @@ class Manager(Thread):
                 self.set_gauge_quantity(**kwargs)
 
             else:
-                log("ERROR: Message received from Timer not understood.", self.name)
+                log("ERROR: Message received from Timer not understood: '{}'.".format(message), self.name)
                 raise Exception("{}: Received message '{}' but did'nt expected anything like that."
                                 .format(self.name, message))
 
@@ -245,7 +242,7 @@ class Manager(Thread):
                                 .format(self.name, message))
 
         else:
-            log("ERROR: Message not understood.", self.name)
+            log("ERROR: Message not understood: '{}'.".format(message), self.name)
             raise Exception("{}: Received message '{}' but did'nt expected anything like that."
                             .format(self.name, message))
 
@@ -288,36 +285,22 @@ class Manager(Thread):
 
     def connect_grip_and_valve(self):
 
-        if not self.valve_manager.is_alive():
+        if not self.client.is_connected():
 
             while not self.shutdown.is_set():
-                connected = self.valve_manager.establish_connection()
+                connected = self.client.establish_connection()
                 if connected:
                     break
                 else:
-                    Event().wait(0.5)
+                    self.waiting_event.wait(0.5)
 
             if not self.shutdown.is_set():
                 self.valve_manager.start()
-
-        if not self.grip_manager.is_alive():
-
-            while not self.shutdown.is_set():
-                connected = self.grip_manager.establish_connection()
-                if connected:
-                    break
-                else:
-                    Event().wait(0.5)
-
-            if not self.shutdown.is_set():
                 self.grip_manager.start()
 
     def play_game(self):
 
         log('PLAY GAME.', self.name)
-
-        # Play appropriate sound
-        self.sound_manager.play("start")
 
         # Begin a new block of trials
         self.begin_new_block()
@@ -428,29 +411,30 @@ class Manager(Thread):
 
     def wait_for_grasping(self):
 
-        # If user holds already the grip, go directly to next step
-        if self.queues["grip_value"].value == 1:
+        if self.parameters["fake"]:
+            already_hold = self.queues["grip_value"].value == 1
 
+        else:
+            already_hold = self.grip_manager.get_grip_state() == 1
+
+        # If user holds already the grip, go directly to next step
+        if already_hold:
             self.grasp_before_stimuli_display()
 
         # Otherwise wait for him to do it
-        elif self.queues["grip_value"].value == 0:
+        else:
 
             log("Wait for grasping.", self.name)
-
             self.grip_tracker.launch(msg="grasp_before_stimuli_display")
-
-        else:
-            raise Exception("Something's wrong with the GripManager.")
 
     def grasp_before_stimuli_display(self):
 
         log("Grasp before stimuli display.", self.name)
 
-        # Observe if the user holds the grip for a certain time, otherwise do what is appropriate
+        # # Observe if the user holds the grip for a certain time, otherwise do what is appropriate
         self.grip_tracker.launch(msg="release_before_end_of_fixation_time")
 
-        # Launch a new timer: if user holds the grip, show the stimuli
+        # # Launch a new timer: if user holds the grip, show the stimuli
         self.fixation_time = np.random.randint(
             self.parameters["fixation_time"][0], self.parameters["fixation_time"][1]) / 1000
 
@@ -477,14 +461,11 @@ class Manager(Thread):
 
         log("Decide.", self.name)
 
-        # Stop previous timer
+        # Stop previous timer whose purpose was to raise an error if user did'nt took a decision
         self.timer.cancel()
 
         # Measure time to decide
         self.time_to_decide = int((time() - self.time_to_decide) * 1000)
-
-        # Play appropriated sound
-        self.sound_manager.play("choice")
 
         # Save choice
         self.choice = choice
@@ -506,7 +487,7 @@ class Manager(Thread):
 
         log("Show results.", self.name)
 
-        # Stop previous timer
+        # Stop previous timer whose purpose was to raise an error if user didn't come back
         self.timer.cancel()
 
         # Measure time for coming back to the grip
@@ -546,20 +527,19 @@ class Manager(Thread):
 
         log("PUNISH.", self.name)
 
-        # Play appropriated sound
-        self.sound_manager.play("punishment")
-
         # Update display on game window
         self.ask_interface(("show_black_screen", ))
 
         # After punishment time, go to end of trial
         punishment_time = self.parameters["punishment_time"] / 1000
-        self.timer.launch(msg="end_trial", time=punishment_time)
+        self.timer.launch(msg="end_trial", time=punishment_time, debug="Comming from punishment")
 
     def release_before_end_of_fixation_time(self):
 
         log("Release grip before the end of the fixation time.", self.name)
-        self.timer.cancel()
+
+        # Cancel timer leading to 'show stimuli'.
+        self.timer.cancel(debug="Don't show stimuli motherfucker!")
 
         self.error = "release before end of fixation time"
         self.punish()
@@ -567,14 +547,18 @@ class Manager(Thread):
     def did_not_take_decision(self):
 
         log("Did not take a decision.", self.name)
-        self.error = "too long to take a decision"
+
         self.time_to_decide = -1
+
+        self.error = "too long to take a decision"
         self.punish()
 
     def did_not_came_back_to_the_grip(self):
 
         log("Did not came back to the grip.", self.name)
+
         self.time_to_come_back_to_the_grip = -1
+
         self.error = "did not came back to the grip"
         self.punish()
 
@@ -632,7 +616,6 @@ class Manager(Thread):
             sequence = []
 
         for i, j in enumerate(sequence):
-            print(i)
 
             self.animation_timers[i].launch(
                 time=time_per_unity * np.absolute(j),
@@ -647,8 +630,8 @@ class Manager(Thread):
 
     def set_gauge_quantity(self, **kwargs):
 
-        self.ask_interface(("set_gauge_quantity", kwargs["quantity"]))
-        self.sound_manager.play(sound=kwargs["sound"])
+        self.ask_interface(("set_gauge_quantity", kwargs["quantity"], kwargs["sound"]))
+
         if "water" in kwargs:
             if not self.parameters["fake"]:
                 self.valve_manager.open(self.parameters["valve_opening_time"])
