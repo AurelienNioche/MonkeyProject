@@ -87,7 +87,7 @@ class GameWindow(QMainWindow):
         a = time()
         self.players[self.current_player].setMedia(self.sounds[sound])
         b = time()
-        print(b-a)
+        log("Time for setting the sound player".format(b-a), self.name)
         self.players[self.current_player].play()
         self.current_player = (self.current_player + 1) % 6
 
@@ -223,6 +223,7 @@ class GameWindow(QMainWindow):
 
         self.hide_pause_screen()
         self.hide_stimuli()
+        self.play_sound("punishment")
         self.frames["black_screen"].show()
 
     def show_pause_screen(self):

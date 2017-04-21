@@ -46,7 +46,7 @@ class Client(object):
 
     def recv(self):
 
-        return self.socket.recv(1)
+        return self.socket.recv(1).decode()
 
     def close(self):
 
@@ -109,37 +109,36 @@ class GripManager(Thread):
 
     name = "GripManager"
 
-    def __init__(self, grip_value, grip_queue, track_signal, client):
+    def __init__(self, grip_value, grip_queue, client):
 
         super().__init__()
 
         self.grip_value = grip_value
         self.grip_queue = grip_queue
-        self.track_signal = track_signal
 
         self.client = client
 
+        self.track_signal = Event()
         self.shutdown = Event()
 
     def run(self):
 
         log("Running.", self.name)
 
-        waiting_event = Event()
-
         while not self.shutdown.is_set():
 
-            self.track_signal.wait()
             self.client.send("g")  # Go signal
             response = self.client.recv()
             if response:
 
-                if int(response) != self.grip_value.value:
-                    self.grip_queue.put(int(response))
+                response = int(response)
 
-                self.grip_value.value = int(response)
+                if response != self.grip_value.value:
+                    self.grip_queue.put(response)
 
-            waiting_event.wait(0.01)
+                self.grip_value.value = response
+
+            Event().wait(0.01)
 
         self.client.close()
 
@@ -148,14 +147,6 @@ class GripManager(Thread):
     def end(self):
 
         self.shutdown.set()
-
-    def get_grip_state(self):
-
-        self.client.send("g")  # Go signal
-        response = self.client.recv()
-        if response:
-            self.grip_value.value = int(response)
-            return response
 
 
 # --------------------------------------------------------------------------------------------------------------- #

@@ -38,7 +38,9 @@ class Grip:
 
     def detect(self):
 
-        return 1 - GPIO.input(self.gpio_in)
+        grip_state = 1 - GPIO.input(self.gpio_in)
+        print("Grip state:", grip_state)
+        return grip_state
 
     @staticmethod
     def close():
@@ -72,24 +74,28 @@ def main():
 
                         try:
                             data = conn.recv(5)  # Go signal
+                            if data:
+                                data = data.decode()
+                                if data[0] == "v":
+                                    aperture = int(data[1:].replace("*", ""))
+                                    valve.launch(aperture)
 
-                            if data[0] == "v":
-                                aperture = int(data[1:].replace("*", ""))
-                                valve.launch(aperture)
+                                elif data[0] == "g":
+                                    detector_state = grip.detect()
+                                    conn.send("{}".format(detector_state).encode())
 
-                            elif data[0] == "g":
-                                detector_state = grip.detect()
-                                conn.send("{}".format(detector_state).encode())
-
+                                else:
+                                    print("Message not understood: '{}'.".format(data))
                             else:
-                                raise Exception("Message not understood.")
+                                print("No message.")
+                                break
 
-                        except socket.error as exc:
-                            print("Caught exception socket.error: '{}'.".format(exc))
+                        except Exception as e:
+                            print(e)
                             break
 
-    except (SystemExit, KeyboardInterrupt, Exception):
-
+    except (SystemExit, KeyboardInterrupt, Exception) as e:
+        print(e)
         print("Exit.")
         grip.close()
         valve.close()

@@ -26,8 +26,6 @@ class Manager(Thread):
         self.shutdown = shutdown
         self.communicant = communicant
 
-        self.tracking_signal = Event()
-
         self.grip_tracker = GripTracker(
             message_queue=self.queues["manager"],
             change_queue=self.queues["grip_queue"]
@@ -44,7 +42,7 @@ class Manager(Thread):
 
         self.grip_manager = GripManager(
             grip_value=self.queues["grip_value"], grip_queue=self.queues["grip_queue"],
-            client=self.client, track_signal=self.tracking_signal)
+            client=self.client)
 
         self.valve_manager = ValveManager(client=self.client)
 
@@ -411,11 +409,7 @@ class Manager(Thread):
 
     def wait_for_grasping(self):
 
-        if self.parameters["fake"]:
-            already_hold = self.queues["grip_value"].value == 1
-
-        else:
-            already_hold = self.grip_manager.get_grip_state() == 1
+        already_hold = self.queues["grip_value"].value == 1
 
         # If user holds already the grip, go directly to next step
         if already_hold:
@@ -556,6 +550,8 @@ class Manager(Thread):
     def did_not_came_back_to_the_grip(self):
 
         log("Did not came back to the grip.", self.name)
+
+        self.grip_tracker.cancel()
 
         self.time_to_come_back_to_the_grip = -1
 
