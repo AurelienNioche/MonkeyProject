@@ -376,7 +376,8 @@ class GaugeAnimation(Thread):
 
                         kwargs = {
                             "quantity": j,
-                            "sound": kwargs["sound"]
+                            "sound": kwargs["sound"],
+                            "water": kwargs["water"]
                         }
 
                         self.message_queue.put(("gauge_animation", self.message, kwargs))
