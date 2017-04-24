@@ -1,14 +1,13 @@
 from collections import OrderedDict
 from datetime import date
-from multiprocessing import Event
-from threading import Thread
+from threading import Event, Thread
 from time import time
 import json
 from os import path
 import numpy as np
 
 from data_management.database import Database
-from task.ressources import GripManager, ValveManager, GripTracker, Timer, Client
+from task.ressources import GripManager, ValveManager, GripTracker, Timer, Client, GaugeAnimation
 from task.stimuli_finder import StimuliFinder
 from utils.utils import log
 
@@ -16,7 +15,6 @@ from utils.utils import log
 class Manager(Thread):
 
     name = "Manager"
-    n_sound_thread = 4
 
     def __init__(self, communicant, queues, shutdown):
 
@@ -73,8 +71,8 @@ class Manager(Thread):
 
         # -------- TIME & TIMERS ----------- #
 
-        self.timer = Timer(message_queue=self.queues["manager"], name="main")
-        self.animation_timers = []
+        self.timer = Timer(message_queue=self.queues["manager"])
+        self.gauge_animation = GaugeAnimation(message_queue=self.queues["manager"])
 
         self.time_to_decide = -1
         self.time_to_come_back_to_the_grip = -1
@@ -99,11 +97,7 @@ class Manager(Thread):
 
         self.grip_tracker.start()
         self.timer.start()
-
-        for i in range(self.stimuli_finder.gauge_maximum):
-            t = Timer(message_queue=self.queues["manager"], name="animation{}".format(i))
-            t.start()
-            self.animation_timers.append(t)
+        self.gauge_animation.start()
 
     def run(self):
 
@@ -124,8 +118,7 @@ class Manager(Thread):
             self.data_saved.wait()
 
         self.timer.end()
-        for timer in self.animation_timers:
-            timer.end()
+        self.gauge_animation.end()
 
         self.grip_tracker.end()
         self.grip_manager.end()
@@ -187,35 +180,42 @@ class Manager(Thread):
 
         elif message[0] == "timer":
 
-            command = message[1]
-            kwargs = message[2]
-            ts = message[3]
-            log("Received from Timer: '{}' with kwargs '{}' and ts '{}'.".format(command, kwargs, ts), self.name)
+            command, ts, = message[1:]
+            log("Received from Timer: '{}' with and ts '{}'.".format(command, ts), self.name)
 
-            if command == "begin_new_block" and not self.timer.is_cancelled():
+            if command == "begin_new_block":
                 self.begin_new_block()
 
-            elif command == "show_stimuli" and not self.timer.is_cancelled():
+            elif command == "show_stimuli":
                 self.show_stimuli()
 
-            elif command == "did_not_came_back_to_the_grip" and not self.timer.is_cancelled():
+            elif command == "did_not_came_back_to_the_grip":
                 self.did_not_came_back_to_the_grip()
 
-            elif command == "did_not_take_decision" and not self.timer.is_cancelled():
+            elif command == "did_not_take_decision":
                 self.did_not_take_decision()
 
-            elif command == "inter_trial" and not self.timer.is_cancelled():
+            elif command == "inter_trial":
                 self.inter_trial()
 
-            elif command == "end_trial" and not self.timer.is_cancelled():
+            elif command == "end_trial":
                 self.end_trial()
-
-            elif command == "set_gauge_quantity":
-                self.set_gauge_quantity(**kwargs)
 
             else:
                 log("ERROR: Message received from Timer not understood: '{}'.".format(message), self.name)
-                raise Exception("{}: Received message '{}' but did'nt expected anything like that."
+                raise Exception("{}: Received message '{}' from Timer but did'nt expected anything like that."
+                                .format(self.name, message))
+
+        elif message[0] == "gauge_animation":
+
+            command, kwargs, = message[1:]
+
+            if command == "set_gauge_quantity":
+                self.set_gauge_quantity(**kwargs)
+
+            else:
+                log("ERROR: Message received from GaugeAnimation not understood: '{}'.".format(message), self.name)
+                raise Exception("{}: Received message '{}' from GaugeAnimation but did'nt expected anything like that."
                                 .format(self.name, message))
 
         elif message[0] == "interface":
@@ -311,9 +311,8 @@ class Manager(Thread):
         self.grip_tracker.cancel()
 
         # Stop all the timers
-        self.timer.cancel()
-        for timer in self.animation_timers:
-            timer.cancel()
+        self.timer.cancel(debug="Coming from 'end_game'")
+        self.gauge_animation.cancel()
 
         # Update display on game window
         self.ask_interface(("prepare_next_run", ))
@@ -409,34 +408,36 @@ class Manager(Thread):
 
     def wait_for_grasping(self):
 
+        log("NEW STATE -> Wait for grasping.", self.name)
+
         already_hold = self.queues["grip_value"].value == 1
 
         # If user holds already the grip, go directly to next step
         if already_hold:
+            log("Grip already hold by user.", self.name)
             self.grasp_before_stimuli_display()
 
         # Otherwise wait for him to do it
         else:
-
-            log("Wait for grasping.", self.name)
             self.grip_tracker.launch(msg="grasp_before_stimuli_display")
 
     def grasp_before_stimuli_display(self):
 
-        log("Grasp before stimuli display.", self.name)
+        log("NEW STATE -> Grasp before stimuli display.", self.name)
 
         # # Observe if the user holds the grip for a certain time, otherwise do what is appropriate
         self.grip_tracker.launch(msg="release_before_end_of_fixation_time")
 
         # # Launch a new timer: if user holds the grip, show the stimuli
         self.fixation_time = np.random.randint(
-            self.parameters["fixation_time"][0], self.parameters["fixation_time"][1]) / 1000
+            self.parameters["fixation_time"][0], self.parameters["fixation_time"][1]
+        ) / 1000
 
         self.timer.launch(time=self.fixation_time, msg="show_stimuli")
 
     def show_stimuli(self):
 
-        log("Show stimuli.", self.name)
+        log("NEW STATE -> Show stimuli.", self.name)
 
         # Stop grip tracker whose purpose was to rise an error if user has release the grip
         self.grip_tracker.cancel()
@@ -453,7 +454,7 @@ class Manager(Thread):
 
     def decide(self, choice):
 
-        log("Decide.", self.name)
+        log("NEW STATE -> Decide.", self.name)
 
         # Stop previous timer whose purpose was to raise an error if user did'nt took a decision
         self.timer.cancel()
@@ -479,7 +480,7 @@ class Manager(Thread):
 
     def show_results(self):
 
-        log("Show results.", self.name)
+        log("NEW STATE -> Show results.", self.name)
 
         # Stop previous timer whose purpose was to raise an error if user didn't come back
         self.timer.cancel()
@@ -526,7 +527,7 @@ class Manager(Thread):
 
         # After punishment time, go to end of trial
         punishment_time = self.parameters["punishment_time"] / 1000
-        self.timer.launch(msg="end_trial", time=punishment_time, debug="Comming from punishment")
+        self.timer.launch(msg="end_trial", time=punishment_time, debug="Coming from punishment")
 
     def release_before_end_of_fixation_time(self):
 
@@ -563,32 +564,25 @@ class Manager(Thread):
     def filling_gauge_animation(self):
 
         results_display_time = self.parameters["result_display_time"] / 1000
-
         reward = self.stimuli_parameters["{}_x{}".format(self.choice, self.dice_output)]
-
-        # '+2' allows to have a short time before the beginning of the sequence and a short time at the end
-        time_per_unity = results_display_time / (self.stimuli_finder.maximum_x + 2)
 
         if reward > 0:
             sound = "reward"
-            sequence = np.arange(1, reward + 1)
+            sequence = self.gauge_level + np.arange(1, reward + 1)
 
         elif reward < 0:
             sound = "loss"
-            sequence = np.arange(-1, reward - 1, -1)
+            sequence = self.gauge_level + np.arange(-1, reward - 1, -1)
 
         else:
-            sequence = []
+            sequence = None
             sound = None
 
-        for i, j in enumerate(sequence):
-            self.animation_timers[i].launch(
-                time=time_per_unity * np.absolute(j),
-                msg="set_gauge_quantity",
-                kwargs={
-                    "quantity": self.gauge_level + j,
-                    "sound": sound
-                }
+        if sequence is not None:
+            self.gauge_animation.launch(
+                total_time=results_display_time,
+                maximum=self.stimuli_finder.maximum_x,
+                sound=sound, sequence=sequence, water=False
             )
 
         self.gauge_level += reward
@@ -601,34 +595,24 @@ class Manager(Thread):
 
         reward = self.gauge_level
 
-        # '+2' allows to have a short time before the beginning of the sequence and a short time at the end
-        time_per_unity = reward_time / (self.stimuli_finder.gauge_maximum + 2)
-
         if reward > 0:
-
-            sequence = np.arange(1, reward + 1)
+            sequence = self.gauge_level + np.arange(-1, -(reward + 1), -1)
 
         else:
-            sequence = []
+            sequence = None
 
-        for i, j in enumerate(sequence):
-
-            self.animation_timers[i].launch(
-                time=time_per_unity * np.absolute(j),
-                msg="set_gauge_quantity",
-                kwargs=
-                {
-                    "quantity": self.gauge_level - j,
-                    "sound": "reward",
-                    "water": True
-                }
+        if sequence is not None:
+            self.gauge_animation.launch(
+                total_time=reward_time,
+                maximum=self.stimuli_finder.gauge_maximum,
+                sound="reward", sequence=sequence, water=True,
             )
 
     def set_gauge_quantity(self, **kwargs):
 
         self.ask_interface(("set_gauge_quantity", kwargs["quantity"], kwargs["sound"]))
 
-        if "water" in kwargs:
+        if "water" in kwargs and kwargs["water"] is True:
             if not self.parameters["fake"]:
                 self.valve_manager.open(self.parameters["valve_opening_time"])
             else:

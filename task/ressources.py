@@ -3,6 +3,7 @@ from threading import Thread, Event
 from datetime import datetime as dt
 import socket
 import errno
+import numpy as np
 
 from utils.utils import log
 
@@ -168,6 +169,7 @@ class GripTracker(Thread):
         self.shutdown = Event()
         self.waiting = Event()
         self.cancelled = Event()
+        self.running = Event()
 
     def run(self):
 
@@ -175,6 +177,7 @@ class GripTracker(Thread):
 
             log("Waiting order.", self.name)
             msg = self.go_queue.get()
+            self.running.set()
 
             if not self.shutdown.is_set():
 
@@ -201,6 +204,8 @@ class GripTracker(Thread):
 
         self.cancel_signal.clear()
         self.go_queue.put(msg)
+        self.running.wait()
+        self.running.clear()
 
     def cancel(self):
 
@@ -212,6 +217,8 @@ class GripTracker(Thread):
             self.change_queue.put(None)
             self.cancelled.wait()
             self.cancelled.clear()
+        else:
+            log("I was not running.", self.name)
 
     def end(self):
 
@@ -233,17 +240,22 @@ class GripTracker(Thread):
 
 class Timer(Thread):
 
-    def __init__(self, message_queue, name):
+    name = "Timer"
+
+    def __init__(self, message_queue):
 
         super().__init__()
-        self.name = "Timer{}".format(name.capitalize())
-        self.go_queue = Queue()
+
         self.message_queue = message_queue
+
+        self.go_queue = Queue()
+
         self.cancel_signal = Event()
         self.wait_signal = Event()
         self.cancelled = Event()
         self.shutdown = Event()
         self.waiting = Event()
+        self.running = Event()
 
         self.msg, self.ts = None, None
 
@@ -253,7 +265,8 @@ class Timer(Thread):
 
             log("Waiting order.", self.name)
 
-            msg, time, kwargs = self.go_queue.get()
+            msg, time = self.go_queue.get()
+            self.running.set()
 
             if not self.shutdown.is_set():
 
@@ -267,7 +280,7 @@ class Timer(Thread):
 
                 if not self.cancel_signal.is_set():
                     log("RUN message '{}' with ts '{}'.".format(msg, self.ts), self.name)
-                    self.message_queue.put(("timer", msg, kwargs, self.ts))
+                    self.message_queue.put(("timer", msg, self.ts))
 
                 else:
                     log("CANCELLED message '{}' with ts '{}'.".format(msg, self.ts), self.name)
@@ -275,20 +288,22 @@ class Timer(Thread):
 
         log("I'm DEAD.", self.name)
 
-    def launch(self, msg, time, kwargs=None, debug=None):
+    def launch(self, msg, time, debug=None):
 
         ts = dt.utcnow()
         self.msg, self.ts = msg, ts
 
-        log("LAUNCH with message '{}' and ts '{}' /// DEBUG: .".format(self.msg, self.ts, debug), self.name)
+        log("LAUNCH with message '{}' and ts '{}' /// DEBUG: {}.".format(self.msg, self.ts, debug), self.name)
 
         self.cancel_signal.clear()
         self.wait_signal.clear()
-        self.go_queue.put((msg, time, kwargs))
+        self.go_queue.put((msg, time))
+        self.running.wait()
+        self.running.clear()
 
     def cancel(self, debug=None):
 
-        log("CANCEL with message '{}' and ts '{}' /// DEBUG: .".format(self.msg, self.ts, debug), self.name)
+        log("CANCEL with message '{}' and ts '{}' /// DEBUG: {}.".format(self.msg, self.ts, debug), self.name)
         self.cancel_signal.set()
 
         if self.waiting.is_set():
@@ -303,7 +318,104 @@ class Timer(Thread):
         self.shutdown.set()
         self.cancel_signal.set()
         self.wait_signal.set()
-        self.go_queue.put((None, None, None))
+        self.go_queue.put((None, None))
+
+    def is_cancelled(self):
+
+        return self.cancel_signal.is_set()
+
+
+class GaugeAnimation(Thread):
+
+    name = "GaugeAnimation"
+    message = "set_gauge_quantity"
+
+    def __init__(self, message_queue):
+
+        super().__init__()
+
+        self.message_queue = message_queue
+
+        self.go_queue = Queue()
+
+        self.cancel_signal = Event()
+        self.wait_signal = Event()
+        self.cancelled = Event()
+        self.shutdown = Event()
+        self.waiting = Event()
+        self.running = Event()
+
+        self.msg, self.ts = None, None
+
+    def run(self):
+
+        while not self.shutdown.is_set():
+
+            log("Waiting order.", self.name)
+
+            kwargs = self.go_queue.get()
+            self.running.set()
+
+            if not self.shutdown.is_set():
+
+                # '+2' allows to have a short time before the beginning of the sequence and a short time at the end
+                time_per_unity = kwargs["total_time"] / (kwargs["maximum"] + 2)
+                log("Time per unity: {}, Total time: {}, Maximum x: {}".format(time_per_unity, kwargs["total_time"],
+                                                                kwargs["maximum"]), self.name)
+
+                for i, j in enumerate(kwargs["sequence"]):
+
+                    self.waiting.set()
+                    self.wait_signal.wait(timeout=time_per_unity)
+                    self.waiting.clear()
+
+                    log("RELEASED.", self.name)
+
+                    if not self.cancel_signal.is_set():
+                        log("RUN for the {}st/nd time.".format(i), self.name)
+
+                        kwargs = {
+                            "quantity": j,
+                            "sound": kwargs["sound"]
+                        }
+
+                        self.message_queue.put(("gauge_animation", self.message, kwargs))
+                    else:
+                        break
+
+                log("CANCELLED.", self.name)
+                self.cancelled.set()
+
+        log("I'm DEAD.", self.name)
+
+    def launch(self, **kwargs):
+
+        log("LAUNCH", self.name)
+
+        self.cancel_signal.clear()
+        self.wait_signal.clear()
+        self.go_queue.put(kwargs)
+        self.running.wait()
+        self.running.clear()
+
+    def cancel(self, debug=None):
+
+        log("CANCEL with message '{}' and ts '{}' /// DEBUG: {}.".format(self.msg, self.ts, debug), self.name)
+        self.cancel_signal.set()
+
+        if self.waiting.is_set():
+
+            self.wait_signal.set()
+            self.cancelled.wait()
+            self.cancelled.clear()
+
+    def end(self):
+
+        log("END.", self.name)
+        self.shutdown.set()
+        self.cancel_signal.set()
+        self.wait_signal.set()
+        self.go_queue.put(None)
 
     def is_cancelled(self):
 

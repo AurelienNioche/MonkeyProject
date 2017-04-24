@@ -67,7 +67,7 @@ class GameWindow(QMainWindow):
 
         self.initialize()
 
-# ------------------------------------------------------ INITIALIZE ------------------------------------------------ #
+# ------------------------------------------------------ SOUNDS ---------------------------------------------------- #
 
     def prepare_sounds(self):
 
@@ -87,9 +87,11 @@ class GameWindow(QMainWindow):
         a = time()
         self.players[self.current_player].setMedia(self.sounds[sound])
         b = time()
-        log("Time for setting the sound player".format(b-a), self.name)
+        log("Time for setting the sound player: {}.".format(b-a), self.name)
         self.players[self.current_player].play()
         self.current_player = (self.current_player + 1) % 6
+
+# ------------------------------------------------------ INITIALIZE ------------------------------------------------ #
 
     def initialize(self):
 
