@@ -87,6 +87,9 @@ class Manager(Thread):
 
         self.n_block = 0
 
+        # ------ STATE MANAGEMENT ---- #
+        self.state = ""
+
         # ------ INIT ------ #
 
         self.initialize()
@@ -136,13 +139,26 @@ class Manager(Thread):
 
             command = message[1]
 
-            if command == "left":
-                log("Choice left.", self.name)
-                self.decide("left")
+            if command == "choice":
 
-            elif command == "right":
-                log("Choice right.", self.name)
-                self.decide("right")
+                if self.state == "show_stimuli":
+
+                    side = message[2]
+
+                    if side == "left":
+                        log("Choice left.", self.name)
+                        self.decide("left")
+
+                    elif side == "right":
+                        log("Choice right.", self.name)
+                        self.decide("right")
+
+                    else:
+                        log("I will raise an exception.", self.name)
+                        raise Exception
+
+                else:
+                    log("Ignore click on target left because state is not 'show_stimuli'.", self.name)
 
             elif command == "play":
                 log("Play.", self.name)
@@ -159,24 +175,40 @@ class Manager(Thread):
 
         elif message[0] == "grip_tracker":
 
-            if not self.grip_tracker.is_cancelled():
+            command = message[1]
+            log("Received from GripTracker: '{}'.".format(command), self.name)
 
-                command = message[1]
-                log("Received from GripTracker: '{}'.".format(command), self.name)
+            if command == "release_before_end_of_fixation_time":
 
-                if command == "release_before_end_of_fixation_time":
+                if self.state == "grasp_before_stimuli_display":
                     self.release_before_end_of_fixation_time()
 
-                elif command == "grasp_before_stimuli_display":
+                else:
+                    log("Command '{}' ignored (not in the appropriate state)."
+                        .format(command), self.name)
+
+            elif command == "grasp_before_stimuli_display":
+
+                if self.state == "wait_for_grasping":
                     self.grasp_before_stimuli_display()
 
-                elif command == "show_results":
+                else:
+                    log("Command '{}' ignored (not in the appropriate state)."
+                        .format(command), self.name)
+
+            elif command == "show_results":
+
+                if self.state == "decide":
                     self.show_results()
 
                 else:
-                    log("ERROR: Message received from GripTracker not understood: '{}'.".format(message), self.name)
-                    raise Exception("{}: Received message '{}' but did'nt expected anything like that."
-                                    .format(self.name, message))
+                    log("Command '{}' ignored (not in the appropriate state)."
+                        .format(command), self.name)
+
+            else:
+                log("ERROR: Message received from GripTracker not understood: '{}'.".format(message), self.name)
+                raise Exception("{}: Received message '{}' but did'nt expected anything like that."
+                                .format(self.name, message))
 
         elif message[0] == "timer":
 
@@ -184,22 +216,58 @@ class Manager(Thread):
             log("Received from Timer: '{}' with and ts '{}'.".format(command, ts), self.name)
 
             if command == "begin_new_block":
-                self.begin_new_block()
+
+                if self.state == "end_block":
+                    self.begin_new_block()
+
+                else:
+                    log("Command '{}' ignored (not in the appropriate state)."
+                        .format(command), self.name)
 
             elif command == "show_stimuli":
-                self.show_stimuli()
+
+                if self.state == "grasp_before_stimuli_display":
+                    self.show_stimuli()
+
+                else:
+                    log("Command '{}' ignored (not in the appropriate state)."
+                        .format(command), self.name)
 
             elif command == "did_not_came_back_to_the_grip":
-                self.did_not_came_back_to_the_grip()
+
+                if self.state == "decide":
+                    self.did_not_came_back_to_the_grip()
+
+                else:
+                    log("Command '{}' ignored (not in the appropriate state)."
+                        .format(command), self.name)
 
             elif command == "did_not_take_decision":
-                self.did_not_take_decision()
+
+                if self.state == "show_stimuli":
+                    self.did_not_take_decision()
+
+                else:
+                    log("Command '{}' ignored (not in the appropriate state)."
+                        .format(command), self.name)
 
             elif command == "inter_trial":
-                self.inter_trial()
+
+                if self.state == "show_results":
+                    self.inter_trial()
+
+                else:
+                    log("Command '{}' ignored (not in the appropriate state)."
+                        .format(command), self.name)
 
             elif command == "end_trial":
-                self.end_trial()
+
+                if self.state in ["inter_trial", "punishment"]:
+                    self.end_trial()
+
+                else:
+                    log("Command '{}' ignored (not in the appropriate state)."
+                        .format(command), self.name)
 
             else:
                 log("ERROR: Message received from Timer not understood: '{}'.".format(message), self.name)
@@ -208,15 +276,21 @@ class Manager(Thread):
 
         elif message[0] == "gauge_animation":
 
-            command, kwargs, = message[1:]
+            if self.state in ["show_results", "end_block"]:
 
-            if command == "set_gauge_quantity":
-                self.set_gauge_quantity(**kwargs)
+                command, kwargs, = message[1:]
+
+                if command == "set_gauge_quantity":
+                    self.set_gauge_quantity(**kwargs)
+
+                else:
+                    log("ERROR: Message received from GaugeAnimation not understood: '{}'.".format(message), self.name)
+                    raise Exception("{}: Received message '{}' from GaugeAnimation but did'nt expected anything like that."
+                                    .format(self.name, message))
 
             else:
-                log("ERROR: Message received from GaugeAnimation not understood: '{}'.".format(message), self.name)
-                raise Exception("{}: Received message '{}' from GaugeAnimation but did'nt expected anything like that."
-                                .format(self.name, message))
+                log("Command '{}' ignored (not in the appropriate state)."
+                    .format("gauge_animation"), self.name)
 
         elif message[0] == "interface":
 
@@ -298,14 +372,17 @@ class Manager(Thread):
 
     def play_game(self):
 
-        log('PLAY GAME.', self.name)
+        log("Play game.", self.name)
 
         # Begin a new block of trials
         self.begin_new_block()
 
     def end_game(self):
 
-        log('END GAME.', self.name)
+        log("NEW STATE -> End game.", self.name)
+
+        # Update state
+        self.state = "end_game"
 
         # Stop the grip tracker
         self.grip_tracker.cancel()
@@ -326,7 +403,10 @@ class Manager(Thread):
 
     def begin_new_block(self):
 
-        log("Start new block.", self.name)
+        log("NEW STATE -> Start new block.", self.name)
+
+        # Update state
+        self.state = "new_block"
 
         # Reinitialize
         self.n_trial_inside_block = 0
@@ -340,7 +420,10 @@ class Manager(Thread):
 
     def end_block(self):
 
-        log("End of a block.", self.name)
+        log("NEW STATE -> End of a block.", self.name)
+
+        # Update state
+        self.state = "end_block"
 
         # Upgrade counter
         self.n_block += 1
@@ -356,7 +439,10 @@ class Manager(Thread):
 
     def begin_new_trial(self):
 
-        log("New trial.", self.name)
+        log("NEW STATE -> New trial.", self.name)
+
+        # Update state
+        self.state = "new_trial"
 
         # Reinitialize
         self.error = None
@@ -376,7 +462,10 @@ class Manager(Thread):
 
     def end_trial(self):
 
-        log("End of trial.", self.name)
+        log("NEW STATE -> End of trial.", self.name)
+
+        # Update state
+        self.state = "end_trial"
 
         # Save trial (on RAM)
         if self.parameters["save"] == 1:
@@ -410,6 +499,9 @@ class Manager(Thread):
 
         log("NEW STATE -> Wait for grasping.", self.name)
 
+        # Update state
+        self.state = "wait_for_grasping"
+
         already_hold = self.queues["grip_value"].value == 1
 
         # If user holds already the grip, go directly to next step
@@ -425,6 +517,9 @@ class Manager(Thread):
 
         log("NEW STATE -> Grasp before stimuli display.", self.name)
 
+        # Update state
+        self.state = "grasp_before_stimuli_display"
+
         # # Observe if the user holds the grip for a certain time, otherwise do what is appropriate
         self.grip_tracker.launch(msg="release_before_end_of_fixation_time")
 
@@ -438,6 +533,9 @@ class Manager(Thread):
     def show_stimuli(self):
 
         log("NEW STATE -> Show stimuli.", self.name)
+
+        # Update state
+        self.state = "show_stimuli"
 
         # Stop grip tracker whose purpose was to rise an error if user has release the grip
         self.grip_tracker.cancel()
@@ -455,6 +553,9 @@ class Manager(Thread):
     def decide(self, choice):
 
         log("NEW STATE -> Decide.", self.name)
+
+        # Update state
+        self.state = "decide"
 
         # Stop previous timer whose purpose was to raise an error if user did'nt took a decision
         self.timer.cancel()
@@ -482,6 +583,9 @@ class Manager(Thread):
 
         log("NEW STATE -> Show results.", self.name)
 
+        # Update state
+        self.state = "show_results"
+
         # Stop previous timer whose purpose was to raise an error if user didn't come back
         self.timer.cancel()
 
@@ -503,7 +607,10 @@ class Manager(Thread):
 
     def inter_trial(self):
 
-        log("Inter-trial.", self.name)
+        log("NEW STATE -> Inter-trial.", self.name)
+
+        # Update state
+        self.state = "inter_trial"
 
         # Update display on game window
         self.ask_interface(("show_gauge", ))
@@ -520,7 +627,10 @@ class Manager(Thread):
 
     def punish(self):
 
-        log("PUNISH.", self.name)
+        log("NEW STATE -> Punishment.", self.name)
+
+        # Update state
+        self.state = "punishment"
 
         # Update display on game window
         self.ask_interface(("show_black_screen", ))
@@ -736,8 +846,3 @@ class Manager(Thread):
 
         self.current_saving.clear()
         self.data_saved.set()
-
-
-
-
-

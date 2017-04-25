@@ -193,6 +193,7 @@ class GripTracker(Thread):
                     self.message_queue.put(("grip_tracker", msg))
 
                 else:
+                    log("Cancelled.", self.name)
                     self.cancelled.set()
 
         log("I'm DEAD.", self.name)
@@ -384,7 +385,7 @@ class GaugeAnimation(Thread):
                     else:
                         break
 
-                log("CANCELLED.", self.name)
+                log("CANCELLED / FINISHED.", self.name)
                 self.cancelled.set()
 
         log("I'm DEAD.", self.name)
