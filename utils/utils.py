@@ -14,7 +14,7 @@ def today():
 
 def log(msg, name):
 
-    print("[{}] {}: {}".format(now(), name, msg))
+    print("[{}] [{}] {}".format(now(), name, msg))
 
 
 def git_report():

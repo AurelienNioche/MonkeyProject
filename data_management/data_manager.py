@@ -17,6 +17,9 @@ class DataManager(object):
 
     def select_relevant_dates(self, dates_list):
 
+        log("Starting point: {}.".format(self.starting_point), self.name)
+        log("End point: {}.".format(self.end_point), self.name)
+
         starting_point = [int(i) for i in self.starting_point.split("-")]
         end_point = [int(i) for i in self.end_point.split("-")]
 
@@ -78,7 +81,8 @@ class DataManager(object):
         assert len(all_dates)
         dates = self.select_relevant_dates(all_dates)
 
-        log("[DataManager] N dates: {}.".format(len(dates)), self.name)
+        log("N dates: {}.".format(len(dates)), self.name)
+        log("Relevant dates: {}".format(dates), self.name)
 
         return dates
 
@@ -94,7 +98,6 @@ class DataManager(object):
 
         for idx, date in enumerate(sorted(dates)):
 
-            log("Dates: {}".format(dates), self.name)
             session_table = \
                 self.db.read_column(table_name="summary", column_name='session_table',
                                     monkey=self.monkey, date=date)
@@ -131,7 +134,7 @@ class DataManager(object):
         new_session = []
 
         valid_trials = np.where(np.asarray(error) == "None")[0]
-        log("[DataManager] N valid trials: {}.".format(len(valid_trials)), self.name)
+        log("N valid trials: {}.".format(len(valid_trials)), self.name)
 
         for valid_idx in valid_trials:
 
@@ -156,13 +159,13 @@ class DataManager(object):
 
     def run(self):
 
-        log("[DataManager] Import data for {}.".format(self.monkey), self.name)
+        log("Import data for {}.".format(self.monkey), self.name)
 
         dates = self.get_dates()
         error, p, x0, x1, choice, session = self.get_errors_p_x0_x1_choices_from_db(dates)
         p, x0, x1, choice, session = self.filter_valid_trials(error, p, x0, x1, choice, session)
 
-        log("[DataManager] Done!", self.name)
+        log("Done!", self.name)
 
         return {"p": p, "x0": x0, "x1": x1, "choice": choice, "session": session}
 

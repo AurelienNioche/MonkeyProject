@@ -9,7 +9,7 @@ from data_management.data_manager import import_data
 from utils.utils import today, log
 
 
-class Model(object):
+class ProspectTheoryModel(object):
 
     labels = ['loss_aversion', 'negative_risk_aversion', 'positive_risk_aversion', 'probability_distortion', 'temp']
 
@@ -23,15 +23,14 @@ class Model(object):
             self.parameters[i] = j
 
     def softmax(self, x1, x2):
-
         """Compute softmax values for each sets of scores in x."""
         # print("x", x)
         # return np.exp(x / tau) / np.sum(np.exp(x / tau), axis=0)
         return 1/(1+np.exp(-(1/self.parameters["temp"])*(x1-x2)))
 
     def u(self, x):
-
         """Compute utility for a single output considering a parameter of risk-aversion"""
+
         if x > 0:
             return (x/self.reward_max) ** (1-self.parameters["positive_risk_aversion"])
         else:
@@ -39,8 +38,8 @@ class Model(object):
                   / (1 - self.parameters["loss_aversion"])
 
     def U(self, L):
-
         """Compute utility for a lottery"""
+
         p, v = L[0], L[1]
         y = self.w(p) * self.u(v)
 
@@ -53,6 +52,8 @@ class Model(object):
 
     def get_p(self, lottery_0, lottery_1):
 
+        """ Compute the probability of choosing lottery '0' against lottery '1' """
+
         # print(lottery_0, lottery_1)
         U0, U1 = self.U(lottery_0), self.U(lottery_1)
 
@@ -63,27 +64,30 @@ class Model(object):
 
 class ModelRunner(object):
 
+    name = "ModelRunner"
+
     n_values_per_parameter = 50
 
-    def __init__(self):
+    def __init__(self, decision_making_model):
 
         self.possible_parameter_values = {
             "positive_risk_aversion": np.linspace(-1., 1., self.n_values_per_parameter),
             "negative_risk_aversion": np.linspace(-1., 1., self.n_values_per_parameter),
             "probability_distortion": np.linspace(0., 1., self.n_values_per_parameter),
-            "loss_aversion": np.linspace(0.5, 1., self.n_values_per_parameter),
-            "temp": np.linspace(0.05, 1., self.n_values_per_parameter)
+            "loss_aversion": np.linspace(0.0, 0.5, self.n_values_per_parameter),
+            "temp": np.linspace(0.05, 0.5, self.n_values_per_parameter)
 
         }
 
-        assert sorted(Model.labels) == sorted(self.possible_parameter_values.keys())
+        self.decision_making_model = decision_making_model
 
-    @staticmethod
-    def compute(param):
+        assert sorted(self.decision_making_model.labels) == sorted(self.possible_parameter_values.keys())
+
+    def compute(self, param):
 
         ps = []
         parameters, alternatives = param[0], param[1]
-        model = Model(parameters)
+        model = self.decision_making_model(parameters)
 
         for l1, l2 in alternatives:
 
@@ -108,16 +112,16 @@ class ModelRunner(object):
 
     def run(self, alternatives):
 
-        log("[ModelRunner] Launch run of model...")
+        log("Launch run of model...", self.name)
 
         parameters, param_for_workers = self.prepare_run(alternatives)
 
-        log("[ModelRunner] Number of different set of parameters: {}.".format(len(parameters[:, 0])))
+        log("Number of different set of parameters: {}.".format(len(parameters[:, 0])), self.name)
 
         pool = Pool(processes=cpu_count())
         p = np.array(pool.map(self.compute, param_for_workers))
 
-        log("[ModelRunner] Done!")
+        log("Done!", self.name)
         return parameters, p
 
 
@@ -151,6 +155,8 @@ class LLS(object):
 
 class LlsComputer(object):
 
+    name = "LlsComputer"
+
     def __init__(self, k, n, p):
 
         self.k = k
@@ -159,7 +165,7 @@ class LlsComputer(object):
 
     def run(self):
 
-        log("[LlsComputer] Launch lls computation...")
+        log("Launch lls computation...", self.name)
 
         assert len(self.k) == len(self.n) == len(self.p[0, :]), \
             "len k: {}; len n: {}; len p: {}.".format(
@@ -176,7 +182,7 @@ class LlsComputer(object):
 
         lls_list = np.asarray(lls_list)
 
-        log("[LlsComputer] Done!")
+        log("Done!", self.name)
 
         return lls_list
 
@@ -228,7 +234,7 @@ class AlternativesNKGetter(object):
         return alternatives, n, k
 
 
-def get_model_data(npy_files, alternatives, force=False):
+def get_model_data(decision_making_model, npy_files, alternatives, force=False):
 
     if all([path.exists(file) for file in npy_files.values()]) and not force:
 
@@ -237,7 +243,7 @@ def get_model_data(npy_files, alternatives, force=False):
 
     else:
 
-        m = ModelRunner()
+        m = ModelRunner(decision_making_model=decision_making_model)
         parameters, p = m.run(alternatives=alternatives)
 
         np.save(npy_files["parameters"], parameters)
@@ -297,7 +303,7 @@ def treat_results(monkey, lls_list, parameters_list, result_file):
 
 def main():
 
-    starting_point = "2016-01-01"
+    starting_point = "2017-03-01"
     end_point = today()
 
     folders = {
@@ -332,16 +338,16 @@ def main():
     for monkey in monkeys:
 
         print()
-        log("[__main__] Processing for {}...".format(monkey))
+        log("Processing for {}...".format(monkey), name="__main__")
 
         alternatives, n, k = get_monkey_data(
             monkey=monkey, starting_point=starting_point, end_point=end_point,
             npy_files=files[monkey]["data"], force=True)
 
-        log("[__main__]")
-
         parameters, p = \
-            get_model_data(npy_files=files["model"], alternatives=alternatives, force=True)
+            get_model_data(
+                decision_making_model=ProspectTheoryModel,
+                npy_files=files["model"], alternatives=alternatives, force=True)
 
         lls_list = get_lls(
             k=k,
@@ -351,7 +357,7 @@ def main():
 
         treat_results(monkey, lls_list, parameters, files["result"])
 
-        log("[__main__] Done!")
+        log("Done!", name="__main__")
 
 
 if __name__ == "__main__":

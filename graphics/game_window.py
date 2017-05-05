@@ -379,25 +379,84 @@ class GameWindow(QMainWindow):
 # ------------------------------------------------ MAIN ------------------------------------------------ #
 
 
-def main():
-
-    q = {"manager": Queue(), "interface": Queue()}
-
-    app = QApplication(sys.argv)
+class Viewer(object):
 
     textures_folder = "../textures"
 
-    window = GameWindow(queues=q, textures_folder=textures_folder, standalone=True)
-    window.show_stimuli()
-    # window.show_choice(parameters=st_parameters, choice=ch)
-    # window.show_results(parameters=st_parameters, choice=ch, dice_output=d)
-    # window.show_gauge()
-    # window.hide_stimuli()
-    # window.show_black_screen()
-    # window.hide_black_screen()
-    # window.show_pause_screen()
+    parameters = {
+        "left_p": 0.25,
+        "left_x0": 3,
+        "left_x1": 0,
+        "left_beginning_angle": 5,
+        "right_p": 0.5,
+        "right_x0": 1,
+        "right_x1": 0,
+        "right_beginning_angle": 140
+    }
 
-    window.show()
+    gauge_quantity = 3
+    choice = "left"
+
+    dice_output = 0
+
+    def __init__(self):
+
+        self.window = GameWindow(
+            queues={"manager": Queue(), "interface": Queue()},
+            textures_folder=self.textures_folder, standalone=True
+        )
+
+        self.window.show_gauge()
+        self.window.show()
+
+    def show_fixation_time(self):
+
+        self.window.set_gauge_quantity(self.gauge_quantity, sound=None)
+
+    def show_choice(self):
+
+        self.window.set_gauge_quantity(self.gauge_quantity, sound=None)
+        self.window.show_gauge()
+
+        self.window.set_parameters(parameters=self.parameters)
+        self.window.show_stimuli()
+
+    def show_choice_made(self):
+
+        self.window.set_gauge_quantity(self.gauge_quantity, sound=None)
+
+        self.window.set_parameters(self.parameters)
+        self.window.set_choice(choice=self.choice)
+        self.window.show_choice()
+
+    def show_results(self):
+
+        self.window.set_parameters(self.parameters)
+        self.window.set_choice(self.choice)
+        self.window.set_dice_output(self.dice_output)
+        self.window.set_gauge_quantity(self.gauge_quantity + 3, sound=None)
+
+        self.window.show_results()
+
+    def show_venting_gauge(self):
+
+        self.window.set_gauge_color("blue")
+        # self.window.set_gauge_quantity(self.gauge_quantity + 3, sound=None)
+        self.window.set_gauge_quantity(0, sound=None)
+
+
+def main():
+
+    app = QApplication(sys.argv)
+
+    viewer = Viewer()
+
+    # #  ----- Uncomment a line or another for viewing a particular state of the game ---------- #
+    # viewer.show_choice()
+    # viewer.show_choice_made()
+    # viewer.show_results()
+    viewer.show_venting_gauge()
+    # # ----------------------------------------------------------------------- #
 
     sys.exit(app.exec_())
 

@@ -6,12 +6,78 @@ from data_management.data_manager import import_data
 from utils.utils import log
 
 
+class RiskyChoiceAgainstExpectValuePlot(object):
+
+    line_width = 2
+    axis_label_font_size = 12
+    ticks_label_font_size = 8
+    legend_font_size = 8
+    comment_font_size = 8
+
+    def __init__(self, fig_name):
+
+        self.fig_name = fig_name
+
+    def plot(self, expected_values_differences, risky_choice_means, n_trials):
+
+        x_data = expected_values_differences
+        y_data = risky_choice_means
+
+        try:
+
+            p_opt, p_cov = curve_fit(self.sigmoid, x_data, y_data)
+
+            n_points = 50  # Arbitrary neither too small, or too large
+            x = np.linspace(min(x_data), max(x_data), n_points)
+            y = self.sigmoid(x, *p_opt)
+            plt.plot(x, y, color="black", label='fit', linewidth=self.line_width)
+
+        except RuntimeError as e:
+            print(e)
+
+        plt.plot(x_data, y_data, 'o', color="black", label='data')
+        plt.ylim(-0.01, 1.01)
+
+        # Add comment for number of trials
+        plt.text(min(x_data) + 0.75 * (max(x_data) - min(x_data)), 0.1, "n trials: {}".format(n_trials),
+                 fontsize=self.comment_font_size)
+
+        # Add legend
+        plt.legend(loc='best', fontsize=self.legend_font_size)
+
+        # Axis labels
+        plt.xlabel("Difference between the expected values of the riskiest option and the safest option",
+                   fontsize=self.axis_label_font_size)
+        plt.ylabel("Frequency with which the riskiest option is chosen",
+                   fontsize=self.axis_label_font_size)
+
+        # Remove top and right borders
+        ax = plt.gca()
+        ax.spines['right'].set_color('none')
+        ax.xaxis.set_ticks_position('bottom')
+        ax.yaxis.set_ticks_position('left')
+        ax.spines['bottom'].set_position(('data', 0))
+        ax.spines['top'].set_color('none')
+
+        plt.tick_params(axis='both', which='major', labelsize=self.ticks_label_font_size)
+        plt.tick_params(axis='both', which='minor', labelsize=self.ticks_label_font_size)
+
+        plt.savefig(filename=self.fig_name)
+        plt.close()
+
+    @staticmethod
+    def sigmoid(x, x0, k):
+        y = 1 / (1 + np.exp(-k * (x - x0)))
+        return y
+
+
 class Analyst(object):
 
-    def __init__(self, data, fig_name, condition=""):
+    name = "Analyst"
+
+    def __init__(self, data, condition=""):
 
         self.data = data
-        self.fig_name = fig_name
 
         self.condition = condition
         assert self.condition in ["with_gains_only", "with_losses_only"]
@@ -106,55 +172,22 @@ class Analyst(object):
 
     def run(self):
 
-        log("[Analyst] Selected condition: {}".format(self.condition))
+        log("Selected condition: {}".format(self.condition), self.name)
 
         results = self.get_choices_for_incongruent_trials()
 
         expected_values_differences, risky_choice_means, n_trials = self.compute(results)
 
-        log("[Analyst] N 'risky' trials with selected condition: {}".format(n_trials))
+        log("N 'risky' trials with selected condition: {}".format(n_trials), self.name)
 
-        self.plot(expected_values_differences, risky_choice_means, n_trials)
-
-    def plot(self, expected_values_differences, risky_choice_means, n_trials):
-
-        x_data = expected_values_differences
-        y_data = risky_choice_means
-
-        try:
-
-            p_opt, p_cov = curve_fit(self.sigmoid, x_data, y_data)
-
-            n_points = 50  # Arbitrary neither too small, or too large
-            x = np.linspace(min(x_data), max(x_data), n_points)
-            y = self.sigmoid(x, *p_opt)
-            plt.plot(x, y, color="black", label='fit')
-
-        except RuntimeError as e:
-            print(e)
-
-        plt.plot(x_data, y_data, 'o', color="black", label='data')
-        plt.ylim(-0.05, 1.05)
-
-        plt.text(min(x_data) + 0.75 * (max(x_data) - min(x_data)), 0.1, "N trials: {}".format(n_trials))
-        plt.legend(loc='best')
-        plt.xlabel("Difference between the expected values of the riskiest option and the safest option")
-        plt.ylabel("Frequency with which the riskiest option is chosen")
-
-        plt.savefig(filename=self.fig_name)
-        plt.close()
-
-    @staticmethod
-    def sigmoid(x, x0, k):
-        y = 1 / (1 + np.exp(-k * (x - x0)))
-        return y
+        return expected_values_differences, risky_choice_means, n_trials
 
 
 def main():
 
     fig_folder = path.expanduser("~/Desktop/")
     starting_point = "2017-03-01"
-    end_point = "2017-03-21"
+    end_point = "2017-04-27"
 
     for monkey in ["Havane", "Gladys"]:
 
@@ -165,8 +198,11 @@ def main():
             fig_name = "{}/{}_preference_toward_risk_against_EV_{}.pdf"\
                 .format(fig_folder, monkey, condition)
 
-            analyst = Analyst(data=data, condition=condition, fig_name=fig_name)
-            analyst.run()
+            analyst = Analyst(data=data, condition=condition)
+            results = analyst.run()
+
+            plot = RiskyChoiceAgainstExpectValuePlot(fig_name=fig_name)
+            plot.plot(*results)
 
 
 if __name__ == "__main__":
