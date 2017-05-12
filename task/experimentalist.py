@@ -353,6 +353,7 @@ class Manager(Thread):
 
         # Reinitialize
         self.to_save = []
+        self.trial_counter = [0, 0]
         self.n_block = 0
 
     def connect_grip_and_valve(self):
