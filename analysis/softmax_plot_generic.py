@@ -1,6 +1,5 @@
 from os import path
 from pylab import np, plt
-import json
 
 
 class SoftmaxPlot(object):

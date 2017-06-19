@@ -3,17 +3,19 @@ from multiprocessing import Pool, cpu_count
 from os import path, mkdir
 
 import numpy as np
+import json
 from scipy.stats import binom
 
+from analysis.analysis_parameters import folders, starting_point, end_point
 from data_management.data_manager import import_data
-from utils.utils import today, log
+from utils.utils import log
 
 
 class ProspectTheoryModel(object):
 
     labels = ['loss_aversion', 'negative_risk_aversion', 'positive_risk_aversion', 'probability_distortion', 'temp']
 
-    reward_max = 3
+    absolute_reward_max = 3
 
     def __init__(self, parameters):
 
@@ -21,6 +23,8 @@ class ProspectTheoryModel(object):
 
         for i, j in zip(sorted(self.labels), parameters):
             self.parameters[i] = j
+
+        # self.norm = self.absolute_reward_max / (1 - self.parameters["loss_aversion"])
 
     def softmax(self, x1, x2):
         """Compute softmax values for each sets of scores in x."""
@@ -32,10 +36,21 @@ class ProspectTheoryModel(object):
         """Compute utility for a single output considering a parameter of risk-aversion"""
 
         if x > 0:
-            return (x/self.reward_max) ** (1-self.parameters["positive_risk_aversion"])
+            v = (x/self.absolute_reward_max) ** (1 - self.parameters["positive_risk_aversion"])
+
+            if self.parameters["loss_aversion"] > 0:
+                v = (1 - self.parameters["loss_aversion"]) * v
+
         else:
-            return - ((np.absolute(x)/self.reward_max) ** self.parameters["negative_risk_aversion"]) \
-                  / (1 - self.parameters["loss_aversion"])
+            v = - (abs(x)/self.absolute_reward_max) ** (1 + self.parameters["negative_risk_aversion"])
+
+            if self.parameters["loss_aversion"] < 0:
+                v = (1 + self.parameters["loss_aversion"]) * v
+
+        assert 0. <= abs(v) <= 1., print("v", v, "; x", x,
+                                         "; neg", self.parameters["negative_risk_aversion"],
+                                         "; pos", self.parameters["positive_risk_aversion"])
+        return v
 
     def U(self, L):
         """Compute utility for a lottery"""
@@ -66,63 +81,64 @@ class ModelRunner(object):
 
     name = "ModelRunner"
 
-    n_values_per_parameter = 50
+    alternatives = None
 
-    def __init__(self, decision_making_model):
+    parameters_list = None
+    n_set_parameters = None
 
-        self.possible_parameter_values = {
-            "positive_risk_aversion": np.linspace(-1., 1., self.n_values_per_parameter),
-            "negative_risk_aversion": np.linspace(-1., 1., self.n_values_per_parameter),
-            "probability_distortion": np.linspace(0., 1., self.n_values_per_parameter),
-            "loss_aversion": np.linspace(0.0, 0.5, self.n_values_per_parameter),
-            "temp": np.linspace(0.05, 0.5, self.n_values_per_parameter)
+    p_list = None
 
+    @classmethod
+    def prepare(cls, alternatives):
+
+        cls.alternatives = alternatives
+
+        cls.prepare_parameters_list()
+
+    @classmethod
+    def prepare_parameters_list(cls):
+
+        n_values_per_parameter = 10
+
+        possible_parameter_values = {
+            "positive_risk_aversion": np.linspace(-1., 1., n_values_per_parameter),
+            "negative_risk_aversion": np.linspace(-1., 1., n_values_per_parameter),
+            "probability_distortion": np.linspace(0., 1., n_values_per_parameter),
+            "loss_aversion": np.linspace(-0.5, 0.5, n_values_per_parameter),
+            "temp": np.linspace(0.05, 0.5, n_values_per_parameter)
         }
 
-        self.decision_making_model = decision_making_model
+        assert sorted(possible_parameter_values.keys()) == ProspectTheoryModel.labels
 
-        assert sorted(self.decision_making_model.labels) == sorted(self.possible_parameter_values.keys())
+        cls.n_set_parameters = n_values_per_parameter ** len(possible_parameter_values)
+        cls.parameters_list = [possible_parameter_values[i] for i in sorted(possible_parameter_values.keys())]
 
-    def compute(self, param):
+    @classmethod
+    def compute(cls, parameters):
 
-        ps = []
-        parameters, alternatives = param[0], param[1]
-        model = self.decision_making_model(parameters)
+        ps = np.zeros(len(cls.alternatives))
+        model = ProspectTheoryModel(parameters)
 
-        for l1, l2 in alternatives:
+        for i, (l1, l2) in enumerate(cls.alternatives):
 
-            p = model.get_p(l1, l2)
-            ps.append(p)
+            ps[i] = model.get_p(l1, l2)
 
         return ps
 
-    def prepare_run(self, lotteries):
+    @classmethod
+    def run(cls, alternatives):
 
-        parameters = np.array(list(
-            it.product(*[self.possible_parameter_values[i] for i in sorted(self.possible_parameter_values.keys())])
-        ))
+        cls.prepare(alternatives)
 
-        param_for_workers = []
+        log("Launch run of model...", cls.name)
 
-        for i in parameters:
-
-            param_for_workers.append([i, lotteries])
-
-        return parameters, param_for_workers
-
-    def run(self, alternatives):
-
-        log("Launch run of model...", self.name)
-
-        parameters, param_for_workers = self.prepare_run(alternatives)
-
-        log("Number of different set of parameters: {}.".format(len(parameters[:, 0])), self.name)
+        log("Number of different set of parameters: {}.".format(cls.n_set_parameters), cls.name)
 
         pool = Pool(processes=cpu_count())
-        p = np.array(pool.map(self.compute, param_for_workers))
 
-        log("Done!", self.name)
-        return parameters, p
+        cls.p_list = np.array(pool.map(cls.compute, it.product(*cls.parameters_list)))
+
+        log("Done!", cls.name)
 
 
 class LLS(object):
@@ -234,22 +250,24 @@ class AlternativesNKGetter(object):
         return alternatives, n, k
 
 
-def get_model_data(decision_making_model, npy_files, alternatives, force=False):
+def get_model_data(npy_files, alternatives, force=False):
 
     if all([path.exists(file) for file in npy_files.values()]) and not force:
 
-        parameters = np.load(npy_files["parameters"])
+        parameters_it = np.load(npy_files["parameters"])
         p = np.load(npy_files["p"])
+
+        return parameters_it, p
 
     else:
 
-        m = ModelRunner(decision_making_model=decision_making_model)
-        parameters, p = m.run(alternatives=alternatives)
+        m = ModelRunner()
+        m.run(alternatives)
 
-        np.save(npy_files["parameters"], parameters)
-        np.save(npy_files["p"], p)
+        np.save(npy_files["parameters"], m.parameters_list)
+        np.save(npy_files["p"], m.p_list)
 
-    return parameters, p
+        return m.parameters_list, m.p_list
 
 
 def get_monkey_data(monkey, npy_files, starting_point, end_point, force=False):
@@ -290,33 +308,33 @@ def get_lls(n, k, p, npy_file, force=False):
     return lls
 
 
-def treat_results(monkey, lls_list, parameters_list, result_file):
+def treat_results(monkey, lls_list, parameters, json_file):
 
     arg = np.argmax(lls_list)
+
+    best_parameters = None
+    for i, param in enumerate(it.product(*parameters)):
+        if i == arg:
+            best_parameters = param
+            break
+    print(best_parameters)
+
     msg = "{}: ".format(monkey) + \
-        "".join(["{}: {:.2f}; ".format(k, v) for k, v in zip(sorted(Model.labels), parameters_list[arg])])
+        "".join(["{}: {:.2f}; ".format(k, v) for k, v in zip(sorted(ProspectTheoryModel.labels), best_parameters)])
     print(msg)
-    with open(result_file, 'a') as file:
-        file.write(msg)
-        file.write("\n")
+
+    result = dict([(k, v) for k, v in zip(sorted(ProspectTheoryModel.labels), best_parameters)])
+    with open(json_file, "w") as file:
+        json.dump(result, file)
 
 
 def main():
 
-    starting_point = "2017-03-01"
-    end_point = today()
-
-    folders = {
-        "results": path.expanduser("~/Desktop/results"),
-        "figures": path.expanduser("~/Desktop/monkey_figures"),
-        "npy_files": path.expanduser("~/Desktop/monkey_npy_files")
-    }
-
     for folder in folders.values():
-        if not path.exists(folder): mkdir(folder)
+        if not path.exists(folder):
+            mkdir(folder)
 
     files = dict()
-    files["result"] = "{}/{}.txt".format(folders["results"], "result")
     files["model"] = {
         "p": "{}/{}.npy".format(folders["npy_files"], "model_p"),
         "parameters": "{}/{}.npy".format(folders["npy_files"], "model_parameters")
@@ -330,7 +348,8 @@ def main():
                 "n": "{}/{}_{}.npy".format(folders["npy_files"], monkey, "n"),
                 "k": "{}/{}_{}.npy".format(folders["npy_files"], monkey, "k"),
             },
-            "LLS": "{}/{}_{}.npy".format(folders["npy_files"], monkey, "lls")
+            "LLS": "{}/{}_{}.npy".format(folders["npy_files"], monkey, "lls"),
+            "result": "{}/{}_{}.json".format(folders["results"], monkey, "result")
         }
 
     monkeys = ["Gladys", "Havane"]
@@ -340,22 +359,26 @@ def main():
         print()
         log("Processing for {}...".format(monkey), name="__main__")
 
+        log("Getting experimental data for {}...".format(monkey), name="__main__")
         alternatives, n, k = get_monkey_data(
             monkey=monkey, starting_point=starting_point, end_point=end_point,
             npy_files=files[monkey]["data"], force=True)
 
+        log("Getting model data for {}...".format(monkey), name="__main__")
         parameters, p = \
             get_model_data(
-                decision_making_model=ProspectTheoryModel,
                 npy_files=files["model"], alternatives=alternatives, force=True)
 
+        log("Getting statistical data for {}...".format(monkey), name="__main__")
         lls_list = get_lls(
             k=k,
             n=n,
             p=p,
             npy_file=files[monkey]["LLS"], force=True)
 
-        treat_results(monkey, lls_list, parameters, files["result"])
+        treat_results(
+            monkey=monkey, lls_list=lls_list, parameters=parameters,
+            json_file=files[monkey]["result"])
 
         log("Done!", name="__main__")
 

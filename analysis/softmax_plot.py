@@ -1,6 +1,8 @@
-from os import path
+from os import path, mkdir
 from pylab import np, plt
 import json
+
+from analysis.analysis_parameters import folders
 
 
 class SoftmaxPlot(object):
@@ -11,14 +13,17 @@ class SoftmaxPlot(object):
 
     line_width = 2
 
-    def __init__(self, temp):
+    def __init__(self, temp, monkey):
 
         self.temp = temp
-        self.fig_name = self.get_fig_name()
+        self.fig_name = self.get_fig_name(monkey)
 
-    def get_fig_name(self):
+    def get_fig_name(self, monkey):
 
-        return path.expanduser("~/Desktop/softmax_temp_{:.2f}.pdf".format(self.temp))
+        if not path.exists(folders["figures"]):
+            mkdir(folders["figures"])
+
+        return "{}/softmax_{}_temp_{:.2f}.pdf".format(folders["figures"], monkey, self.temp)
 
     def softmax(self, difference):
 
@@ -54,18 +59,19 @@ class SoftmaxPlot(object):
         ax.spines['top'].set_color('none')
 
         # Add legend
-        ax.legend(bbox_to_anchor=(0.2, 0.98), fontsize=self.legend_font_size, frameon=False)
+        # ax.legend(bbox_to_anchor=(0.2, 0.98), fontsize=self.legend_font_size, frameon=False)
 
         fig.savefig(self.fig_name)
 
 
 def main():
 
-    with open(path.expanduser("~/Desktop/results_monkey_modelling.json")) as f:
-        data = json.load(f)
+    for monkey in ["Havane", "Gladys"]:
 
-    for monkey in data.keys():
-        sp = SoftmaxPlot(data[monkey]["temp"])
+        with open("{}/{}_result.json".format(folders["results"], monkey)) as f:
+            data = json.load(f)
+
+        sp = SoftmaxPlot(temp=data["temp"], monkey=monkey)
         sp.plot()
 
 

@@ -1,9 +1,10 @@
 from pylab import np, plt
-from os import path
 from scipy.optimize import curve_fit
+from os import path, mkdir
 
 from data_management.data_manager import import_data
 from utils.utils import log
+from analysis.analysis_parameters import folders, starting_point, end_point
 
 
 class RiskyChoiceAgainstExpectValuePlot(object):
@@ -185,9 +186,8 @@ class Analyst(object):
 
 def main():
 
-    fig_folder = path.expanduser("~/Desktop/")
-    starting_point = "2017-03-01"
-    end_point = "2017-04-27"
+    if not path.exists(folders["figures"]):
+        mkdir(folders["figures"])
 
     for monkey in ["Havane", "Gladys"]:
 
@@ -196,7 +196,7 @@ def main():
         for condition in ["with_gains_only", "with_losses_only"]:
 
             fig_name = "{}/{}_preference_toward_risk_against_EV_{}.pdf"\
-                .format(fig_folder, monkey, condition)
+                .format(folders["figures"], monkey, condition)
 
             analyst = Analyst(data=data, condition=condition)
             results = analyst.run()

@@ -1,8 +1,8 @@
-from collections import OrderedDict
-from os import path
+from os import path, mkdir
 from pylab import np, plt
 
 from data_management.data_manager import import_data
+from analysis.analysis_parameters import folders
 
 
 class ProgressAnalyst(object):
@@ -136,52 +136,61 @@ class ProgressAnalyst(object):
             return hit / n
 
 
-def check_progress():
+class ProgressPerSession(object):
 
-    starting_point = "2016-08-11"
+    def __init__(self, starting_point, monkey):
 
-    for monkey in ["Havane", "Gladys"]:
-     
-        print("Analysis for {}".format(monkey))
+        self.monkey = monkey
+        self.starting_point = starting_point
+
+        self.progress = dict([(k, []) for k in ProgressAnalyst.control_conditions])
+        self.data = import_data(monkey=self.monkey, starting_point=self.starting_point)
+
+        self.fig_name = self.get_fig_name()
+
+    def get_fig_name(self):
+
+        if not path.exists(folders["figures"]):
+            mkdir(folders["figures"])
+
+        return "{}/{}_progress.pdf".format(folders["figures"], self.monkey)
+
+    def analyse(self):
+
+        print("Analysis for {}".format(self.monkey))
         print()
 
-        data = import_data(monkey=monkey, starting_point=starting_point)
-
-        progress = OrderedDict()
-
-        for key in ProgressAnalyst.control_conditions:
-            progress[key] = []
-
-        for session_id in np.unique(data["session"]):
+        for session_id in np.unique(self.data["session"]):
 
             session_p = dict()
             session_x0 = dict()
             session_x1 = dict()
 
             for side in ["left", "right"]:
+                session_p[side] = self.data["p"][side][self.data["session"] == session_id]
+                session_x0[side] = self.data["x0"][side][self.data["session"] == session_id]
+                session_x1[side] = self.data["x1"][side][self.data["session"] == session_id]
 
-                session_p[side] = data["p"][side][data["session"] == session_id]
-                session_x0[side] = data["x0"][side][data["session"] == session_id]
-                session_x1[side] = data["x1"][side][data["session"] == session_id]
-
-            session_choice = data["choice"][data["session"] == session_id]
+            session_choice = self.data["choice"][self.data["session"] == session_id]
 
             print()
             pa = ProgressAnalyst(p=session_p, x0=session_x0, x1=session_x1, choice=session_choice)
-            for key in progress:
-                progress[key].append(pa.analyse(key))
+            for key in self.progress:
+                self.progress[key].append(pa.analyse(key))
 
             print()
             print("*" * 10)
             print()
 
+    def plot(self):
+
         plt.figure(figsize=(25, 12))
         ax = plt.subplot(111)
 
-        for key in progress:
+        for key in self.progress:
 
-            plt.plot(np.unique(data["session"]) + 1, progress[key], label=key, linewidth=2)
-            plt.xticks(np.arange(len(np.unique(data["session"]))) + 1)
+            plt.plot(np.unique(self.data["session"]) + 1, self.progress[key], label=key, linewidth=2)
+            plt.xticks(np.arange(len(np.unique(self.data["session"]))) + 1)
             plt.ylim([-0.01, 1.01])
             plt.ylabel("Success rate")
             plt.xlabel("Session")
@@ -189,12 +198,23 @@ def check_progress():
         box = ax.get_position()
         ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
 
-        ax.set_title(monkey)
+        ax.set_title(self.monkey)
         ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-        plt.savefig(path.expanduser("~/Desktop/{}_progress.pdf".format(monkey)))
+        plt.savefig(self.fig_name)
         plt.close()
+
+
+def main():
+
+    starting_point = "2016-08-11"
+
+    for monkey in ["Havane", "Gladys"]:
+
+        pps = ProgressPerSession(monkey=monkey, starting_point=starting_point)
+        pps.analyse()
+        pps.plot()
 
 
 if __name__ == "__main__":
 
-    check_progress()
+    main()

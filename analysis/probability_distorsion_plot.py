@@ -1,6 +1,8 @@
-from os import path
+from os import path, mkdir
 from pylab import np, plt
 import json
+
+from analysis.analysis_parameters import folders
 
 
 class ProbabilityDistortionPlot(object):
@@ -13,20 +15,23 @@ class ProbabilityDistortionPlot(object):
 
     n_points = 1000
 
-    def __init__(self, parameters):
+    def __init__(self, monkey, alpha):
 
-        self.parameters = parameters
-        self.fig_name = self.get_fig_name()
+        self.alpha = alpha
+        self.fig_name = self.get_fig_name(monkey)
 
-    def get_fig_name(self):
+    def get_fig_name(self, monkey):
 
-        return path.expanduser("~/Desktop/probability_distortion_{:.2f}.pdf".format(
-            self.parameters["probability_distortion"]))
+        if not path.exists(folders["figures"]):
+            mkdir(folders["figures"])
+
+        return "{}/probability_distortion_{}_{:.2f}.pdf".format(
+            folders["figures"], monkey, self.alpha)
 
     def w(self, p):
         """Probability distortion"""
 
-        return np.exp(-(-np.log(p))**self.parameters["probability_distortion"])
+        return np.exp(-(-np.log(p))**self.alpha)
 
     def plot(self):
 
@@ -36,8 +41,8 @@ class ProbabilityDistortionPlot(object):
 
         ax = fig.add_subplot(1, 1, 1)
 
-        X = np.linspace(0, 1, self.n_points)
-        ax.plot(X, self.w(X), label=r'$\alpha = {}$'.format(self.parameters["probability_distortion"]),
+        X = np.linspace(0.001, 1, self.n_points)
+        ax.plot(X, self.w(X), label=r'$\alpha = {}$'.format(self.alpha),
                 color="black", linewidth=self.line_width)
 
         ax.set_xlabel('$p$',
@@ -56,18 +61,19 @@ class ProbabilityDistortionPlot(object):
         ax.spines['top'].set_color('none')
 
         # Add legend
-        ax.legend(bbox_to_anchor=(0.2, 0.98), fontsize=self.legend_font_size, frameon=False)
+        # ax.legend(bbox_to_anchor=(0.2, 0.98), fontsize=self.legend_font_size, frameon=False)
 
         fig.savefig(self.fig_name)
 
 
 def main():
 
-    with open(path.expanduser("~/Desktop/results_monkey_modelling.json")) as f:
-        data = json.load(f)
+    for monkey in ["Havane", "Gladys"]:
 
-    for monkey in data.keys():
-        pdp = ProbabilityDistortionPlot(parameters=data[monkey])
+        with open("{}/{}_result.json".format(folders["results"], monkey)) as f:
+            data = json.load(f)
+
+        pdp = ProbabilityDistortionPlot(monkey=monkey, alpha=data["probability_distortion"])
         pdp.plot()
 
 
