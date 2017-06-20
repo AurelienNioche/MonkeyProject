@@ -65,6 +65,8 @@ class ProbabilityDistortionPlot(object):
 
         fig.savefig(self.fig_name)
 
+        plt.close()
+
 
 def main():
 

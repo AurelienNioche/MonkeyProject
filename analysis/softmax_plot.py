@@ -62,6 +62,7 @@ class SoftmaxPlot(object):
         # ax.legend(bbox_to_anchor=(0.2, 0.98), fontsize=self.legend_font_size, frameon=False)
 
         fig.savefig(self.fig_name)
+        plt.close()
 
 
 def main():

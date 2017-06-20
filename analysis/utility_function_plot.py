@@ -26,10 +26,10 @@ class UtilityFunctionPlot(object):
         if not path.exists(folders["figures"]):
             mkdir(folders["figures"])
 
-        fig_name = "{}/utility_function_".format(folders["figures"])
+        fig_name = "{}/utility_function_{}_".format(folders["figures"], monkey)
 
         for key, value in sorted(parameters.items()):
-            fig_name += "{}_{}_{:.2f}".format(monkey, key[:3], value)
+            fig_name += "{}_{:.2f}".format(key[:3], value)
 
         fig_name += ".pdf"
         return fig_name

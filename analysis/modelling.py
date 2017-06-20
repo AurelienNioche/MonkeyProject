@@ -7,74 +7,9 @@ import json
 from scipy.stats import binom
 
 from analysis.analysis_parameters import folders, starting_point, end_point
+from analysis.model import ProspectTheoryModel
 from data_management.data_manager import import_data
 from utils.utils import log
-
-
-class ProspectTheoryModel(object):
-
-    labels = ['loss_aversion', 'negative_risk_aversion', 'positive_risk_aversion', 'probability_distortion', 'temp']
-
-    absolute_reward_max = 3
-
-    def __init__(self, parameters):
-
-        self.parameters = dict()
-
-        for i, j in zip(sorted(self.labels), parameters):
-            self.parameters[i] = j
-
-        # self.norm = self.absolute_reward_max / (1 - self.parameters["loss_aversion"])
-
-    def softmax(self, x1, x2):
-        """Compute softmax values for each sets of scores in x."""
-        # print("x", x)
-        # return np.exp(x / tau) / np.sum(np.exp(x / tau), axis=0)
-        return 1/(1+np.exp(-(1/self.parameters["temp"])*(x1-x2)))
-
-    def u(self, x):
-        """Compute utility for a single output considering a parameter of risk-aversion"""
-
-        if x > 0:
-            v = (x/self.absolute_reward_max) ** (1 - self.parameters["positive_risk_aversion"])
-
-            if self.parameters["loss_aversion"] > 0:
-                v = (1 - self.parameters["loss_aversion"]) * v
-
-        else:
-            v = - (abs(x)/self.absolute_reward_max) ** (1 + self.parameters["negative_risk_aversion"])
-
-            if self.parameters["loss_aversion"] < 0:
-                v = (1 + self.parameters["loss_aversion"]) * v
-
-        assert 0. <= abs(v) <= 1., print("v", v, "; x", x,
-                                         "; neg", self.parameters["negative_risk_aversion"],
-                                         "; pos", self.parameters["positive_risk_aversion"])
-        return v
-
-    def U(self, L):
-        """Compute utility for a lottery"""
-
-        p, v = L[0], L[1]
-        y = self.w(p) * self.u(v)
-
-        return y
-
-    def w(self, p):
-        """Probability distortion"""
-
-        return np.exp(-(-np.log(p))**self.parameters["probability_distortion"])
-
-    def get_p(self, lottery_0, lottery_1):
-
-        """ Compute the probability of choosing lottery '0' against lottery '1' """
-
-        # print(lottery_0, lottery_1)
-        U0, U1 = self.U(lottery_0), self.U(lottery_1)
-
-        p_choose_U0 = self.softmax(U0, U1)
-
-        return p_choose_U0
 
 
 class ModelRunner(object):
@@ -98,11 +33,11 @@ class ModelRunner(object):
     @classmethod
     def prepare_parameters_list(cls):
 
-        n_values_per_parameter = 20
+        n_values_per_parameter = 10
 
         possible_parameter_values = {
-            "positive_risk_aversion": np.linspace(-1., 1., n_values_per_parameter),
-            "negative_risk_aversion": np.linspace(-1., 1., n_values_per_parameter),
+            "positive_risk_aversion": np.linspace(-0.8, 0.8, n_values_per_parameter),
+            "negative_risk_aversion": np.linspace(-0.8, 0.8, n_values_per_parameter),
             "probability_distortion": np.linspace(0.5, 1., n_values_per_parameter),
             "loss_aversion": np.linspace(-0.5, 0.5, n_values_per_parameter),
             "temp": np.linspace(0.1, 0.3, n_values_per_parameter)
@@ -175,7 +110,7 @@ class LlsComputer(object):
 
         lls_list = np.asarray(lls_list)
 
-        log("Done!", self.name)
+        log("Done!", cls.name)
 
         return lls_list
 
@@ -373,12 +308,12 @@ def main():
         log("Getting experimental data for {}...".format(monkey), name="__main__")
         alternatives, n, k = get_monkey_data(
             monkey=monkey, starting_point=starting_point, end_point=end_point,
-            npy_files=files[monkey]["data"], force=False)
+            npy_files=files[monkey]["data"], force=force)
 
         log("Getting model data for {}...".format(monkey), name="__main__")
         parameters, p = \
             get_model_data(
-                npy_files=files["model"], alternatives=alternatives, force=False)
+                npy_files=files["model"], alternatives=alternatives, force=force)
 
         log("Getting statistical data for {}...".format(monkey), name="__main__")
         lls_list = get_lls(
