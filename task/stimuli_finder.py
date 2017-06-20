@@ -77,7 +77,7 @@ class StimuliFinder(object):
         with_losses = np.random.random() < self.proportion["with_losses"]
         if control:
             if with_losses:
-                stimuli = np.random.choice(self.conditions["control"]["with_losses"])()
+                stimuli = np.random.choice(self.conditions["control"]["with_losses"], p=[0.6, 0.3, 0.1])()
             else:
                 stimuli = np.random.choice(self.conditions["control"]["without_losses"])()
         else:

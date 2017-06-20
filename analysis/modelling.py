@@ -98,14 +98,14 @@ class ModelRunner(object):
     @classmethod
     def prepare_parameters_list(cls):
 
-        n_values_per_parameter = 10
+        n_values_per_parameter = 20
 
         possible_parameter_values = {
             "positive_risk_aversion": np.linspace(-1., 1., n_values_per_parameter),
             "negative_risk_aversion": np.linspace(-1., 1., n_values_per_parameter),
-            "probability_distortion": np.linspace(0., 1., n_values_per_parameter),
+            "probability_distortion": np.linspace(0.5, 1., n_values_per_parameter),
             "loss_aversion": np.linspace(-0.5, 0.5, n_values_per_parameter),
-            "temp": np.linspace(0.05, 0.5, n_values_per_parameter)
+            "temp": np.linspace(0.1, 0.3, n_values_per_parameter)
         }
 
         assert sorted(possible_parameter_values.keys()) == ProspectTheoryModel.labels
@@ -141,21 +141,54 @@ class ModelRunner(object):
         log("Done!", cls.name)
 
 
-class LLS(object):
+class LlsComputer(object):
 
-    def __init__(self, k, n, p):
+    name = "LlsComputer"
+    k = None
+    n = None
+    p = None
 
-        self.k = k
-        self.n = n
-        self.p = p
+    @classmethod
+    def prepare(cls, k, n, p):
 
-    def __call__(self, parameters_set):
+        cls.k = k
+        cls.n = n
+        cls.p = p
+
+    @classmethod
+    def run(cls):
+
+        log("Launch lls computation...", cls.name)
+
+        assert len(cls.k) == len(cls.n) == len(cls.p[0, :]), \
+            "len k: {}; len n: {}; len p: {}.".format(
+                len(cls.k), len(cls.n), len(cls.p[0, :]))
+
+        pool = Pool(processes=cpu_count())
+
+        n_sets = len(cls.p[:, 0])
+
+        lls_list = pool.map(
+            cls.compute,
+            range(n_sets)
+        )
+
+        lls_list = np.asarray(lls_list)
+
+        log("Done!", self.name)
+
+        return lls_list
+
+    @classmethod
+    def compute(cls, parameters_set):
 
         log_likelihood_sum = 0
 
-        for i in range(len(self.n)):
+        len_n = len(cls.n)
 
-            k, n, p = self.k[i], self.n[i], self.p[parameters_set, i]
+        for i in range(len_n):
+
+            k, n, p = cls.k[i], cls.n[i], cls.p[parameters_set, i]
 
             likelihood = binom.pmf(k=k, n=n, p=p)
 
@@ -167,40 +200,6 @@ class LLS(object):
             log_likelihood_sum += log_likelihood
 
         return log_likelihood_sum
-
-
-class LlsComputer(object):
-
-    name = "LlsComputer"
-
-    def __init__(self, k, n, p):
-
-        self.k = k
-        self.n = n
-        self.p = p
-
-    def run(self):
-
-        log("Launch lls computation...", self.name)
-
-        assert len(self.k) == len(self.n) == len(self.p[0, :]), \
-            "len k: {}; len n: {}; len p: {}.".format(
-                len(self.k), len(self.n), len(self.p[0, :]))
-
-        pool = Pool(processes=cpu_count())
-
-        lls_list = pool.map(
-
-            LLS(self.k, self.n, self.p),
-            np.arange(len(self.p[:, 0]))
-
-        )
-
-        lls_list = np.asarray(lls_list)
-
-        log("Done!", self.name)
-
-        return lls_list
 
 
 class AlternativesNKGetter(object):
@@ -264,8 +263,12 @@ def get_model_data(npy_files, alternatives, force=False):
         m = ModelRunner()
         m.run(alternatives)
 
-        np.save(npy_files["parameters"], m.parameters_list)
-        np.save(npy_files["p"], m.p_list)
+        try:
+            np.save(npy_files["parameters"], m.parameters_list)
+            np.save(npy_files["p"], m.p_list)
+
+        except Exception as e:
+            print("Could not save: {}".format(e))
 
         return m.parameters_list, m.p_list
 
@@ -285,9 +288,12 @@ def get_monkey_data(monkey, npy_files, starting_point, end_point, force=False):
         alternatives_n_k_getter = AlternativesNKGetter(data)
         alternatives, n, k = alternatives_n_k_getter.run()
 
-        np.save(npy_files["n"], n)
-        np.save(npy_files["k"], k)
-        np.save(npy_files["alternatives"], alternatives)
+        try:
+            np.save(npy_files["n"], n)
+            np.save(npy_files["k"], k)
+            np.save(npy_files["alternatives"], alternatives)
+        except Exception as e:
+            print("Could not save: {}".format(e))
 
     return alternatives, n, k
 
@@ -300,11 +306,14 @@ def get_lls(n, k, p, npy_file, force=False):
 
     else:
 
-        lls_computer = LlsComputer(k=k, n=n, p=p)
+        lls_computer = LlsComputer()
+        lls_computer.prepare(k=k, n=n, p=p)
         lls = lls_computer.run()
 
-        np.save(npy_file, lls)
-
+        try:
+            np.save(npy_file, lls)
+        except Exception as e:
+            print("Could not save: {}".format(e))
     return lls
 
 
@@ -329,6 +338,8 @@ def treat_results(monkey, lls_list, parameters, json_file):
 
 
 def main():
+
+    force = True
 
     for folder in folders.values():
         if not path.exists(folder):
@@ -362,19 +373,19 @@ def main():
         log("Getting experimental data for {}...".format(monkey), name="__main__")
         alternatives, n, k = get_monkey_data(
             monkey=monkey, starting_point=starting_point, end_point=end_point,
-            npy_files=files[monkey]["data"], force=True)
+            npy_files=files[monkey]["data"], force=False)
 
         log("Getting model data for {}...".format(monkey), name="__main__")
         parameters, p = \
             get_model_data(
-                npy_files=files["model"], alternatives=alternatives, force=True)
+                npy_files=files["model"], alternatives=alternatives, force=False)
 
         log("Getting statistical data for {}...".format(monkey), name="__main__")
         lls_list = get_lls(
             k=k,
             n=n,
             p=p,
-            npy_file=files[monkey]["LLS"], force=True)
+            npy_file=files[monkey]["LLS"], force=force)
 
         treat_results(
             monkey=monkey, lls_list=lls_list, parameters=parameters,
