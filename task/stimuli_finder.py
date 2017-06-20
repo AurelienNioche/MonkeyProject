@@ -1,11 +1,4 @@
-import sys
-from multiprocessing import Queue
-from threading import Thread
-
 import numpy as np
-from PyQt5.QtWidgets import QApplication
-
-from graphics.game_window import GameWindow
 from utils.utils import log
 
 
@@ -75,11 +68,13 @@ class StimuliFinder(object):
 
         control = np.random.random() < self.proportion["control_trials"]
         with_losses = np.random.random() < self.proportion["with_losses"]
+
         if control:
             if with_losses:
                 stimuli = np.random.choice(self.conditions["control"]["with_losses"], p=[0.6, 0.3, 0.1])()
             else:
                 stimuli = np.random.choice(self.conditions["control"]["without_losses"])()
+
         else:
             incongruent = np.random.random() < self.proportion["incongruent"]
 
@@ -227,94 +222,3 @@ class StimuliFinder(object):
             self.stimuli_parameters["{}_beginning_angle".format(side)] = np.random.randint(0, 360)
 
         return self.stimuli_parameters
-
-# ----------------------------------------------- #
-
-
-def main():
-
-    gain_expectation = []
-
-    for i in range(10000):
-
-        sf = StimuliFinder()
-        sp = sf.find()
-        gain_expectation.append(
-            np.mean(
-                [
-                    sp["left_p"] * sp["left_x0"] + (1 - sp["left_p"]) * sp["left_x1"],
-                    sp["right_p"] * sp["right_x0"] + (1 - sp["right_p"]) * sp["right_x1"]
-                ]
-            )
-        )
-    print("Gain expectation in average:", np.mean(gain_expectation))
-
-
-# ----------------------------------------------- #
-
-def test_stimuli(win):
-
-    sf = StimuliFinder()
-    sf.set_parameters(
-        control_trials_proportion=50,
-        with_losses_proportion=50,
-        incongruent_proportion=50
-    )
-
-    sp = sf.find()
-
-    win.current_step = "show_stimuli"
-    win.set_parameters(sp)
-
-    while True:
-        keyboard_input = input("Hit  'enter' key to generate a new stimuli or type 'quit()' to quit\n")
-        print(keyboard_input)
-        if keyboard_input == "quit()":
-            win.destroy()
-            break
-        else:
-            sp = sf.find()
-            win.set_parameters(sp)
-            win.show_stimuli()
-
-
-def main_visual():
-
-    app = QApplication(sys.argv)
-
-    window = GameWindow(queue=Queue(), textures_folder="../textures", standalone=True)
-    window.show()
-
-    pro = Thread(target=test_stimuli, args=(window,))
-    pro.start()
-
-    sys.exit(app.exec_())
-
-# ----------------------------------------------- #
-
-
-def test_difference_expected_value():
-
-    sf = StimuliFinder()
-
-    diff = []
-
-    for i in range(10000):
-
-        sp = sf.incongruent_positive()
-
-        exp = {}
-        for side in ["left", "right"]:
-            exp[side] = \
-                sp["{}_p".format(side)] * sp["{}_x0".format(side)] + \
-                (1 - sp["{}_p".format(side)]) * sp["{}_x1".format(side)]
-        diff.append(exp["left"] - exp["right"])
-
-    log(np.unique(diff), "Test difference expected value")
-
-
-if __name__ == "__main__":
-
-    main_visual()
-
-
