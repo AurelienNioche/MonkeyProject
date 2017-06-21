@@ -734,7 +734,7 @@ class Manager(Thread):
 
     def set_stimuli_parameters(self):
 
-        self.stimuli_parameters = self.stimuli_finder.find
+        self.stimuli_parameters = self.stimuli_finder.find()
 
         self.ask_interface(("set_stimuli_parameters", self.stimuli_parameters))
 
