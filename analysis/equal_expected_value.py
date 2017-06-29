@@ -140,7 +140,8 @@ class Analyst(object):
 
         return sorted_data
 
-    def compute(self, sorted_data):
+    @staticmethod
+    def compute(sorted_data):
 
         results = {}
 

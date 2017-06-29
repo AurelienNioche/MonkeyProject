@@ -53,6 +53,8 @@ class ProspectTheoryModel(object):
     def w(self, p):
         """Probability distortion"""
 
+        assert p > 0
+
         return np.exp(-(-np.log(p))**self.parameters["probability_distortion"])
 
     def get_p(self, lottery_0, lottery_1):
