@@ -23,7 +23,7 @@ class Analyst:
         "temp": [0.1, 0.3]
     }
 
-    n_values_per_parameter = 10
+    n_values_per_parameter = 2
 
     def __init__(self, data, monkey):
 
@@ -75,10 +75,9 @@ class Analyst:
 
     def sort_data_pool(self, pool_size=10):
 
-        n_groups = \
-            len(np.unique(self.data["session"])) // pool_size \
-            if len(np.unique(self.data["session"])) % pool_size == 0 \
-            else len(np.unique(self.data["session"])) // pool_size + 1
+        self.n_dates = len(np.unique(self.data["session"]))
+
+        n_groups = self.n_dates // pool_size
 
         # A list of dictionaries that will contain data, one for each pool.
         self.sorted_data = [
@@ -87,7 +86,11 @@ class Analyst:
         ]
 
         for i, session_id in enumerate(np.unique(self.data["session"])):
-            group = i // n_groups
+            group = i // pool_size
+            if group >= n_groups:
+                log("I will ignore the {} last sessions for having pool of equal size.".format(self.n_dates - i),
+                    self.name)
+                break
             idx = self.data["session"] == session_id
 
             for item in ["p", "x0"]:
@@ -95,7 +98,6 @@ class Analyst:
                     self.sorted_data[group][item][side] += list(self.data[item][side][idx])
 
             self.sorted_data[group]["choice"] += list(self.data["choice"][idx])
-            self.n_dates += 1
 
     def sort_data_per_day(self):
 
@@ -135,7 +137,7 @@ class Analyst:
 
         else:
             best_parameters = []
-            for i in tqdm(range(self.n_dates)):
+            for i in tqdm(range(len(self.sorted_data))):
 
                 best_parameters.append(
                     self.fit_data(self.sorted_data[i]))
@@ -189,6 +191,7 @@ class Analyst:
 class Backup:
 
     def __init__(self, monkey, name):
+        self.monkey = monkey
         self.backup_file = "{}/{}_{}.p".format(folders["results"], monkey, name)
 
     def save(self, data):
@@ -249,12 +252,12 @@ def main():
     starting_point = "2016-12-01"  # "2017-03-01
 
     cond = "pool"  # Choice: "day", "beginning_vs_end", "pool"
-    name = "evolution_param_{}".format(cond)
+    name = "evolution_param_{}_TEST".format(cond)
 
     for monkey in ["Havane", "Gladys"]:
         b = Backup(monkey=monkey, name=name)
 
-        results = b.load()
+        results = None  # b.load()
         if results is None:
             data = import_data(monkey=monkey, starting_point=starting_point)
 

@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-python -m cProfile -s "cumtime" analysis/evolution.py > profiling_report.txt
+python -m cProfile -s "cumtime" main_profiling.py > profiling_report.txt
