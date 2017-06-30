@@ -28,49 +28,43 @@ class DataManager(object):
 
             date = [int(i) for i in str_date.split("-")]
 
-            if end_point[0] > date[0] > starting_point[0]:
-
+            # If year of date is between the years of starting point and end point (but not equal to them)
+            if starting_point[0] < date[0] < end_point[0]:
                 relevant_dates.append(str_date)
 
-            elif date[0] == starting_point[0] and date[0] == end_point[0]:
+            elif starting_point[0] > date[0] or date[0] > end_point[0]:
+                continue
 
-                if end_point[1] > date[1] > starting_point[1]:
+            # If year of date is equal to the years of starting point and end point (which are equal)
+            elif date[0] == starting_point[0] == end_point[0]:
+
+                if starting_point[1] > date[1] or date[1] > end_point[1]:
+                    continue
+
+                elif (end_point[1] > date[1] > starting_point[1]) \
+                        or (date[1] == starting_point[1] == end_point[1]
+                            and starting_point[2] <= date[2] <= end_point[2]) \
+                        or (date[1] == starting_point[1]
+                            and date[2] >= starting_point[2]) \
+                        or (date[1] == end_point[1]
+                            and date[2] <= end_point[2]):
                     relevant_dates.append(str_date)
 
-                elif date[1] == starting_point[1] and date[1] == end_point[1]:
-
-                    if end_point[2] >= date[2] >= starting_point[2]:
-                        relevant_dates.append(str_date)
-
-                elif date[1] == starting_point[1]:
-
-                    if date[2] >= starting_point[2]:
-                        relevant_dates.append(str_date)
-
-                elif date[1] == end_point[1]:
-
-                    if end_point[2] >= date[2]:
-                        relevant_dates.append(str_date)
-
+            # If year of date is equal to the year of starting point (and is inferior to the year of end point)
             elif date[0] == starting_point[0]:
 
-                if end_point[1] > date[1] > starting_point[1]:
+                if (date[1] > starting_point[1])\
+                        or (date[1] == starting_point[1]
+                            and date[2] >= starting_point[2]):
                     relevant_dates.append(str_date)
 
-                elif date[1] == starting_point[1] or date[1] == end_point[1]:
-
-                    if end_point[2] >= date[2] >= starting_point[2]:
-                        relevant_dates.append(str_date)
-
+            # If year of date is equal to the year of starting point (and is superior to the year of starting point)
             elif date[0] == end_point[0]:
 
-                if end_point[1] > date[1]:
+                if (date[1] < end_point[1]) \
+                        or (date[1] == end_point[1]
+                            and date[2] <= end_point[2]):
                     relevant_dates.append(str_date)
-
-                elif date[1] == end_point[1]:
-
-                    if end_point[2] >= date[2]:
-                        relevant_dates.append(str_date)
 
         return relevant_dates
 
@@ -174,3 +168,14 @@ def import_data(monkey, starting_point="2016-12-01", end_point=today()):
 
     d = DataManager(monkey=monkey, starting_point=starting_point, end_point=end_point)
     return d.run()
+
+
+def main():
+
+    d = DataManager(monkey='Havane', starting_point="2016-08-01", end_point=today())
+    return d.get_dates()
+
+
+if __name__ == "__main__":
+
+    main()

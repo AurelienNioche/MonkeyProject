@@ -105,39 +105,28 @@ class LlsComputer(object):
                 len(cls.k), len(cls.n), len(cls.p[0, :]))
 
         n_sets = len(cls.p[:, 0])
+        len_n = len(cls.n)
 
-        lls_list = []
+        lls_list = np.zeros(n_sets)
 
         for i in range(n_sets):
-            lls_list.append(cls.compute(i))
+            log_likelihood_sum = 0
 
-        lls_list = np.asarray(lls_list)
+            for j in range(len_n):
+                k, n, p = cls.k[j], cls.n[j], cls.p[i, j]
+
+                log_likelihood = binom.logpmf(k=k, n=n, p=p)
+                if log_likelihood == -np.inf:
+                    log_likelihood_sum = - np.inf
+                    break
+
+                log_likelihood_sum += log_likelihood
+
+            lls_list[i] = log_likelihood_sum
 
         log("Done!", cls.name)
 
         return lls_list
-
-    @classmethod
-    def compute(cls, parameters_set):
-
-        log_likelihood_sum = 0
-
-        len_n = len(cls.n)
-
-        for i in range(len_n):
-
-            k, n, p = cls.k[i], cls.n[i], cls.p[parameters_set, i]
-
-            likelihood = binom.pmf(k=k, n=n, p=p)
-
-            if likelihood == 0:
-                log_likelihood_sum = - np.inf
-                break
-
-            log_likelihood = np.log(likelihood)
-            log_likelihood_sum += log_likelihood
-
-        return log_likelihood_sum
 
 
 class AlternativesNKGetter(object):

@@ -31,27 +31,89 @@ class Analyst:
         self.monkey = monkey
         self.n_dates = 0
 
-    def sort_data(self):
+        self.sorted_data = []
 
-        sorted_data = []
+    def sort_data(self, cond="day"):
+
+        log("Sort data for {}...".format(self.monkey), self.name)
+
+        if cond == "day":
+            self.sort_data_per_day()
+
+        elif cond == "beginning_vs_end":
+            self.sort_data_beginning_vs_end()
+
+        elif cond == "pool":
+            self.sort_data_pool()
+
+        else:
+            raise Exception("Condition not understood.")
+
+        log("Done.", self.name)
+
+    def sort_data_beginning_vs_end(self):
+
+        # A list of two dictionaries that will contain data, one for beginning of each session, one for end.
+        self.sorted_data = [{k: [] if k == "choice" else {side: [] for side in ["left", "right"]}
+                             for k in ["p", "x0", "choice"]} for i in range(2)]
 
         for i, session_id in enumerate(np.unique(self.data["session"])):
 
-            sorted_data.append({})
+            idx = self.data["session"] == session_id
+            part = len(self.data["choice"][idx]) // 2
+
+            for item in ["p", "x0"]:
+                for side in ["left", "right"]:
+                    data = list(self.data[item][side][idx])
+                    self.sorted_data[0][item][side] += data[:part]
+                    self.sorted_data[1][item][side] += data[part:]
+
+            data = list(self.data["choice"][idx])
+            self.sorted_data[0]["choice"] += data[:part]
+            self.sorted_data[1]["choice"] += data[part:]
+            self.n_dates += 1
+
+    def sort_data_pool(self, pool_size=10):
+
+        n_groups = \
+            len(np.unique(self.data["session"])) // pool_size \
+            if len(np.unique(self.data["session"])) % pool_size == 0 \
+            else len(np.unique(self.data["session"])) // pool_size + 1
+
+        # A list of dictionaries that will contain data, one for each pool.
+        self.sorted_data = [
+            {k: [] if k == "choice" else {side: [] for side in ["left", "right"]}
+                for k in ["p", "x0", "choice"]} for i in range(n_groups)
+        ]
+
+        for i, session_id in enumerate(np.unique(self.data["session"])):
+            group = i // n_groups
+            idx = self.data["session"] == session_id
+
+            for item in ["p", "x0"]:
+                for side in ["left", "right"]:
+                    self.sorted_data[group][item][side] += list(self.data[item][side][idx])
+
+            self.sorted_data[group]["choice"] += list(self.data["choice"][idx])
+            self.n_dates += 1
+
+    def sort_data_per_day(self):
+
+        for i, session_id in enumerate(np.unique(self.data["session"])):
+
+            self.sorted_data.append({})
 
             idx = self.data["session"] == session_id
 
             for item in ["p", "x0"]:
 
-                sorted_data[i][item] = dict()
+                self.sorted_data[i][item] = dict()
 
                 for side in ["left", "right"]:
-                    sorted_data[i][item][side] = self.data[item][side][idx]
+                    self.sorted_data[i][item][side] = self.data[item][side][idx]
 
-                sorted_data[i]["choice"] = self.data["choice"][idx]
+            self.sorted_data[i]["choice"] = self.data["choice"][idx]
             self.n_dates += 1
-
-        return sorted_data
 
     @staticmethod
     def find_best_parameters(lls, parameters):
@@ -66,19 +128,17 @@ class Analyst:
 
         return dict([(k, v) for k, v in zip(sorted(ProspectTheoryModel.labels), best_parameters)])
 
-    def run(self):
+    def run(self, multi=True):
+        if multi:
+            pool = Pool(processes=cpu_count()-1)
+            best_parameters = pool.map(self.fit_data, self.sorted_data)
 
-        log("Sort data for {}...".format(self.monkey), self.name)
-        sorted_data = self.sort_data()
-        log("Done.", self.name)
+        else:
+            best_parameters = []
+            for i in tqdm(range(self.n_dates)):
 
-        pool = Pool(processes=cpu_count())
-        best_parameters = pool.map(self.fit_data, sorted_data)
-        # best_parameters = []
-        # for i in tqdm(range(self.n_dates)):
-        #
-        #     best_parameters.append(
-        #         self.fit_data(sorted_data[i]))
+                best_parameters.append(
+                    self.fit_data(self.sorted_data[i]))
 
         return self.format_results(best_parameters)
 
@@ -93,7 +153,7 @@ class Analyst:
         m = ModelRunner()
         m.run(alternatives=alternatives,
               n_values_per_parameter=self.n_values_per_parameter,
-              range_parameter_values=self.range_parameter_values)  # , pool=pool)
+              range_parameter_values=self.range_parameter_values)
         parameters = m.parameters_list
         p = m.p_list
         log("Done.", self.name)
@@ -101,7 +161,7 @@ class Analyst:
         log("Obtain lls...", self.name)
         lls_computer = LlsComputer()
         lls_computer.prepare(k=k, n=n, p=p)
-        lls = lls_computer.run()  # pool=pool)
+        lls = lls_computer.run()
         log("Done.", self.name)
 
         log("Find best parameters", self.name)
@@ -117,45 +177,66 @@ class Analyst:
         new_results = {
             key: [] for key in sorted(ProspectTheoryModel.labels)
         }
-        for i in range(self.n_dates):
+        for i in range(len(self.sorted_data)):
             for key in sorted(ProspectTheoryModel.labels):
                 new_results[key].append(results[i][key])
 
         new_results["n_dates"] = self.n_dates
+        new_results["n_group"] = len(self.sorted_data)
         return new_results
 
 
 class Backup:
-    @classmethod
-    def save(cls, data, monkey):
-        backup_file = "{}/{}_evolution.p".format(folders["results"], monkey)
 
-        with open(backup_file, "wb") as f:
+    def __init__(self, monkey, name):
+        self.backup_file = "{}/{}_{}.p".format(folders["results"], monkey, name)
+
+    def save(self, data):
+
+        with open(self.backup_file, "wb") as f:
             pickle.dump(data, f)
+
+    def load(self):
+
+        try:
+            with open(self.backup_file, "rb") as f:
+                data = pickle.load(f)
+                return data
+        except:
+            return
 
 
 class Plot:
     @classmethod
-    def plot(cls, monkey, data):
+    def plot(cls, monkey, data, name, cond):
 
         if not path.exists(folders["figures"]):
             mkdir(folders["figures"])
 
-        fig_name = "{}/{}_evolution.pdf" \
-            .format(folders["figures"], monkey)
+        fig_name = "{}/{}_{}.pdf" \
+            .format(folders["figures"], monkey, name)
 
-        x = np.arange(data["n_dates"])
+        x = np.arange(data["n_group"])
 
         for key in sorted(ProspectTheoryModel.labels):
 
-            plt.plot(x, data[key], label=key)
+            plt.plot(x, data[key], linestyle='-', marker='o', label=key.replace("_", " ").capitalize())
 
-        plt.annotate('{} [n dates: {}]'.format(monkey, data["n_dates"]),
-                    xy=(0, 0), xycoords='axes fraction', xytext=(0, 1.1))
+        plt.annotate(
+            '{} [n dates: {}]'.format(monkey, data["n_dates"]),
+            xy=(0, 0), xycoords='axes fraction', xytext=(0, 1.1))
 
-        # Axis labels
-        plt.xlabel("Date")
+        if cond in ["day", "pool"]:
+
+            # Axis labels
+            plt.xlabel(cond.replace("_", " ").capitalize())
+
+        elif cond == "beginning_vs_end":
+            plt.xticks((0, 1), ("Beginning", "End"))
+            plt.xlabel("Session")
+
         plt.ylabel("Parameter value")
+        plt.ylim((-1, 1))
 
         plt.legend()
 
@@ -165,20 +246,25 @@ class Plot:
 
 def main():
 
-    starting_point = "2016-08-11"
+    starting_point = "2016-12-01"  # "2017-03-01
+
+    cond = "pool"  # Choice: "day", "beginning_vs_end", "pool"
+    name = "evolution_param_{}".format(cond)
 
     for monkey in ["Havane", "Gladys"]:
+        b = Backup(monkey=monkey, name=name)
 
-        data = import_data(monkey=monkey, starting_point=starting_point)
+        results = b.load()
+        if results is None:
+            data = import_data(monkey=monkey, starting_point=starting_point)
 
-        analyst = Analyst(data=data, monkey=monkey)
-        results = analyst.run()
+            analyst = Analyst(data=data, monkey=monkey)
+            analyst.sort_data(cond)
+            results = analyst.run()
+            b.save(data=results)
 
         p = Plot()
-        p.plot(monkey=monkey, data=results)
-
-        b = Backup()
-        b.save(monkey=monkey, data=results)
+        p.plot(monkey=monkey, data=results, name=name, cond=cond)
 
 
 if __name__ == "__main__":
