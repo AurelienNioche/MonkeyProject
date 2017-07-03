@@ -23,7 +23,7 @@ class Analyst:
         "temp": [0.1, 0.3]
     }
 
-    n_values_per_parameter = 2
+    n_values_per_parameter = 10
 
     def __init__(self, data, monkey):
 
@@ -252,7 +252,7 @@ def main():
     starting_point = "2016-12-01"  # "2017-03-01
 
     cond = "pool"  # Choice: "day", "beginning_vs_end", "pool"
-    name = "evolution_param_{}_TEST".format(cond)
+    name = "evolution_param_{}".format(cond)
 
     for monkey in ["Havane", "Gladys"]:
         b = Backup(monkey=monkey, name=name)
