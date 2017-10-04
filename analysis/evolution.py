@@ -1,14 +1,16 @@
 from os import makedirs
 from pylab import np, plt
 import itertools as it
-import pickle
 from tqdm import tqdm
 from multiprocessing import Pool, cpu_count
 
 from data_management.data_manager import import_data
+from data_management.data_sorter import sort_data
+
+from analysis.backup import Backup
 from analysis.modelling import AlternativesNKGetter, ModelRunner, LlsComputer, ProspectTheoryModel
 from analysis.analysis_parameters import \
-    folders, range_parameters, n_values_per_parameter, condition_evolution, starting_point
+    folders, range_parameters, n_values_per_parameter, condition_evolution
 
 from utils.utils import log
 
@@ -17,97 +19,25 @@ class Analyst:
 
     name = "Analyst"
 
-    def __init__(self, data, monkey):
+    def __init__(self, sorted_data, n_dates):
 
-        self.data = data
-        self.monkey = monkey
-        self.n_dates = 0
+        self.n_dates = n_dates
+        self.sorted_data = sorted_data
 
-        self.sorted_data = []
+    def run(self, multi=True):
 
-    def sort_data(self, cond="day"):
-
-        log("Sort data for {}...".format(self.monkey), self.name)
-
-        if cond == "day":
-            self.sort_data_per_day()
-
-        elif cond == "beginning_vs_end":
-            self.sort_data_beginning_vs_end()
-
-        elif cond == "pool":
-            self.sort_data_pool()
+        if multi:
+            pool = Pool(processes=cpu_count()-1)
+            best_parameters = pool.map(self.fit_data, self.sorted_data)
 
         else:
-            raise Exception("Condition not understood.")
+            best_parameters = []
+            for i in tqdm(range(len(self.sorted_data))):
 
-        log("Done.", self.name)
+                best_parameters.append(
+                    self.fit_data(self.sorted_data[i]))
 
-    def sort_data_beginning_vs_end(self):
-
-        # A list of two dictionaries that will contain data, one for beginning of each session, one for end.
-        self.sorted_data = [{k: [] if k == "choice" else {side: [] for side in ["left", "right"]}
-                             for k in ["p", "x0", "choice"]} for i in range(2)]
-
-        for i, session_id in enumerate(np.unique(self.data["session"])):
-
-            idx = self.data["session"] == session_id
-            part = len(self.data["choice"][idx]) // 2
-
-            for item in ["p", "x0"]:
-                for side in ["left", "right"]:
-                    data = list(self.data[item][side][idx])
-                    self.sorted_data[0][item][side] += data[:part]
-                    self.sorted_data[1][item][side] += data[part:]
-
-            data = list(self.data["choice"][idx])
-            self.sorted_data[0]["choice"] += data[:part]
-            self.sorted_data[1]["choice"] += data[part:]
-            self.n_dates += 1
-
-    def sort_data_pool(self, pool_size=10):
-
-        self.n_dates = len(np.unique(self.data["session"]))
-
-        n_groups = self.n_dates // pool_size
-
-        # A list of dictionaries that will contain data, one for each pool.
-        self.sorted_data = [
-            {k: [] if k == "choice" else {side: [] for side in ["left", "right"]}
-                for k in ["p", "x0", "choice"]} for i in range(n_groups)
-        ]
-
-        for i, session_id in enumerate(np.unique(self.data["session"])):
-            group = i // pool_size
-            if group >= n_groups:
-                log("I will ignore the {} last sessions for having pool of equal size.".format(self.n_dates - i),
-                    self.name)
-                break
-            idx = self.data["session"] == session_id
-
-            for item in ["p", "x0"]:
-                for side in ["left", "right"]:
-                    self.sorted_data[group][item][side] += list(self.data[item][side][idx])
-
-            self.sorted_data[group]["choice"] += list(self.data["choice"][idx])
-
-    def sort_data_per_day(self):
-
-        for i, session_id in enumerate(np.unique(self.data["session"])):
-
-            self.sorted_data.append({})
-
-            idx = self.data["session"] == session_id
-
-            for item in ["p", "x0"]:
-
-                self.sorted_data[i][item] = dict()
-
-                for side in ["left", "right"]:
-                    self.sorted_data[i][item][side] = self.data[item][side][idx]
-
-            self.sorted_data[i]["choice"] = self.data["choice"][idx]
-            self.n_dates += 1
+        return self.format_results(best_parameters)
 
     @staticmethod
     def find_best_parameters(lls, parameters):
@@ -121,20 +51,6 @@ class Analyst:
                 break
 
         return dict([(k, v) for k, v in zip(sorted(ProspectTheoryModel.labels), best_parameters)])
-
-    def run(self, multi=True):
-        if multi:
-            pool = Pool(processes=cpu_count()-1)
-            best_parameters = pool.map(self.fit_data, self.sorted_data)
-
-        else:
-            best_parameters = []
-            for i in tqdm(range(len(self.sorted_data))):
-
-                best_parameters.append(
-                    self.fit_data(self.sorted_data[i]))
-
-        return self.format_results(best_parameters)
 
     def fit_data(self, data):
 
@@ -181,33 +97,21 @@ class Analyst:
         return new_results
 
 
-class Backup:
-
-    def __init__(self, monkey, name):
-        self.monkey = monkey
-        self.backup_file = "{}/{}_{}.p".format(folders["results"], monkey, name)
-        makedirs(folders["results"], exist_ok=True)
-
-    def save(self, data):
-
-        with open(self.backup_file, "wb") as f:
-            pickle.dump(data, f)
-
-    def load(self):
-
-        try:
-            with open(self.backup_file, "rb") as f:
-                data = pickle.load(f)
-                return data
-        except:
-            return
-
-
 class Plot:
+
+    fig_size = (25, 12)
+    marker = 'o'
+    line_width = 2
+    bbox_to_anchor = (1, 0.5)
+    loc = 'center left'
+
     @classmethod
     def plot(cls, monkey, data, name, cond):
 
         makedirs(folders["figures"], exist_ok=True)
+
+        plt.figure(figsize=cls.fig_size)
+        ax = plt.subplot(111)
 
         fig_name = "{}/{}_{}.pdf" \
             .format(folders["figures"], monkey, name)
@@ -216,48 +120,60 @@ class Plot:
 
         for key in sorted(ProspectTheoryModel.labels):
 
-            plt.plot(x, data[key], linestyle='-', marker='o', label=key.replace("_", " ").capitalize())
+            ax.plot(x, data[key], linestyle='-', marker='o', label=key.replace("_", " ").capitalize())
 
-        plt.annotate(
+        ax.annotate(
             '{} [n dates: {}]'.format(monkey, data["n_dates"]),
             xy=(0, 0), xycoords='axes fraction', xytext=(0, 1.1))
 
         if cond in ["day", "pool"]:
 
             # Axis labels
-            plt.xlabel(cond.replace("_", " ").capitalize())
+            ax.set_xlabel(cond.replace("_", " ").capitalize())
 
         elif cond == "beginning_vs_end":
             plt.xticks((0, 1), ("Beginning", "End"))
             plt.xlabel("Session")
 
-        plt.ylabel("Parameter value")
-        plt.ylim((-1, 1))
+        ax.set_ylabel("Parameter value")
+        ax.set_ylim((-1, 1))
 
-        plt.legend()
+        box = ax.get_position()
+        ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+        ax.legend(loc=cls.loc, bbox_to_anchor=cls.bbox_to_anchor)
 
         plt.savefig(filename=fig_name)
         plt.close()
 
 
-def main():
+def main(just_do_graphs=True):
 
-    name = "evolution_param_{}".format(condition_evolution)
+    kind_of_analysis = "evolution_param_{}".format(condition_evolution)
+
+    starting_point = "2016-12-01"
 
     for monkey in ["Havane", "Gladys"]:
-        b = Backup(monkey=monkey, name=name)
 
-        results = None  # b.load()
+        b = Backup(monkey=monkey, kind_of_analysis=kind_of_analysis)
+
+        if just_do_graphs:
+            results = b.load()
+        else:
+            results = None
+
         if results is None:
-            data = import_data(monkey=monkey, starting_point=starting_point)
 
-            analyst = Analyst(data=data, monkey=monkey)
-            analyst.sort_data(condition_evolution)
+            # Get data and sort it
+            data = import_data(monkey=monkey, starting_point=starting_point)
+            sorted_data = sort_data(data=data, sort_type=condition_evolution)
+
+            analyst = Analyst(sorted_data=sorted_data, n_dates=len(data["session"]), monkey=monkey)
+
             results = analyst.run()
             b.save(data=results)
 
         p = Plot()
-        p.plot(monkey=monkey, data=results, name=name, cond=condition_evolution)
+        p.plot(monkey=monkey, data=results, name=kind_of_analysis, cond=condition_evolution)
 
 
 if __name__ == "__main__":

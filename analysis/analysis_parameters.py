@@ -15,9 +15,14 @@ range_parameters = {
     "temp": [0.1, 0.5]
 }
 
+starting_points = \
+    {
+        "Havane": "2017-03-03",
+        "Gladys": "2017-03-31"
+    }  # "2016-12-01", "2017-03-01"
+
 n_values_per_parameter = 10
 
-starting_point = "2016-12-01"  # "2017-03-01
 end_point = today()
 
 condition_evolution = "pool"  # Choice: "day", "beginning_vs_end", "pool"

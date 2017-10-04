@@ -5,9 +5,10 @@ import numpy as np
 import json
 from scipy.stats import binom
 
-from analysis.analysis_parameters import folders, starting_point, end_point
 from analysis.model import ProspectTheoryModel
+
 from data_management.data_manager import import_data
+
 from utils.utils import log
 
 
@@ -271,6 +272,9 @@ def treat_results(monkey, lls_list, parameters, json_file):
 
 def main():
 
+    from analysis.analysis_parameters import \
+        folders, range_parameters, n_values_per_parameter, starting_points, end_point
+
     force = True
 
     for folder in folders.values():
@@ -297,17 +301,9 @@ def main():
 
     monkeys = ["Gladys", "Havane"]
 
-    n_values_per_parameter = 10
-
-    range_parameters = {
-        "positive_risk_aversion": [-0.8, 0.8],
-        "negative_risk_aversion": [-0.8, 0.8],
-        "probability_distortion": [0.5, 1.],
-        "loss_aversion": [-0.5, 0.5],
-        "temp": [0.1, 0.3]
-    }
-
     for monkey in monkeys:
+
+        starting_point = starting_points[monkey]
 
         print()
         log("Processing for {}...".format(monkey), name="__main__")
