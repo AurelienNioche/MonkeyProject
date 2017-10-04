@@ -110,7 +110,7 @@ class Plot:
         plt.close()
 
 
-def main():
+def main(make_only_figures=True):
 
     starting_points = \
         {
@@ -120,18 +120,17 @@ def main():
 
     for monkey in ["Havane", "Gladys"]:
 
-        starting_point = starting_points[monkey]
-
         b = Backup(monkey, "progressHist")
-        sorted_data = b.load()
+        results = b.load()
 
-        if sorted_data is None:  # or True:  # add 'or True' if you want to force the importation of data:
+        if not make_only_figures or results is None:
+
+            starting_point = starting_points[monkey]
             raw_data = import_data(monkey=monkey, starting_point=starting_point)
             sorted_data = sort_data(raw_data, sort_type="day")
-            b.save(sorted_data)
-
-        pr = ProgressHist(sorted_data=sorted_data)
-        results = pr.run()
+            pr = ProgressHist(sorted_data=sorted_data)
+            results = pr.run()
+            b.save(results)
 
         pl = Plot(monkey=monkey, results=results)
         pl.plot()

@@ -1,57 +1,17 @@
 from pylab import np, plt
-from scipy.optimize import curve_fit
-from os import path, mkdir
-import math
+from scipy.stats import sem
+from os import makedirs
 
 from data_management.data_manager import import_data
+
 from utils.utils import log
-from analysis.analysis_parameters import folders, starting_point, end_point
+
+from analysis.backup import Backup
+
+from analysis.analysis_parameters import folders, starting_points, end_point
 
 
-class Plot(object):
-
-    axis_label_font_size = 12
-
-    def __init__(self, fig_name):
-
-        self.fig_name = fig_name
-
-    def plot(self, results, monkey):
-
-        fig, ax = plt.subplots()
-
-        n_trials = results["n_trials"]
-
-        bar_width = 0.25
-        plt.bar([0], results["gains"]["average"], bar_width, yerr=results["gains"]["std"], label="gains")
-        plt.bar([bar_width], results["losses"]["average"], bar_width, yerr=results["losses"]["std"], label="losses")
-
-        ax.annotate('{} [n trials: {}]'.format(monkey, n_trials),
-                    xy=(0, 0), xycoords='axes fraction', xytext=(0, 1.1))
-
-        ax.set_ylim(0, 1)
-        plt.tick_params(
-            axis='x',  # changes apply to the x-axis
-            which='both',  # both major and minor ticks are affected
-            bottom='off',  # ticks along the bottom edge are off
-            top='off',  # ticks along the top edge are off
-            labelbottom='off')  # labels along the bottom edge are off
-
-        # # Axis labels
-        # plt.xlabel("Expected value of the two lotteries",
-        #            fontsize=self.axis_label_font_size)
-        plt.ylabel("Frequency with which the riskiest option is chosen",
-                   fontsize=self.axis_label_font_size)
-
-        ax.set_aspect(2)
-
-        plt.legend()
-
-        plt.savefig(filename=self.fig_name)
-        plt.close()
-
-
-class Analyst(object):
+class Analyst:
 
     name = "Analyst"
 
@@ -147,19 +107,24 @@ class Analyst(object):
 
         for cond in ["gains", "losses"]:
 
-            freq, n = [], []
+            values = []
+
             for value in sorted_data[cond].values():
+                values += value
 
-                freq.append(np.mean(value))
-                n.append(len(value))
+            # freq, n = [], []
+            # for value in sorted_data[cond].values():
+            #
+            #     freq.append(np.mean(value))
+            #     n.append(len(value))
 
-            average = np.average(freq, weights=n)
-            variance = np.average((np.asarray(freq) - average) ** 2, weights=n)
-            std = math.sqrt(variance)
+            # average = np.average(freq, weights=n)
+            # variance = np.average((np.asarray(freq) - average) ** 2, weights=n)
+            # std = math.sqrt(variance)
 
             results[cond] = {
-                "average": average,
-                "std": std
+                "mean": np.mean(values),
+                "sem": sem(values)
             }
         results["n_trials"] = sorted_data["n_trials"]
         return results
@@ -170,24 +135,70 @@ class Analyst(object):
         return self.compute(sorted_data)
 
 
-def main():
+class Plot(object):
 
-    if not path.exists(folders["figures"]):
-        mkdir(folders["figures"])
+    axis_label_font_size = 10
+
+    def __init__(self, folder, monkey):
+
+        self.fig_name = "{}/{}_equal_expected_value.pdf"\
+            .format(folder, monkey)
+
+    def plot(self, results, monkey):
+
+        fig, ax = plt.subplots()
+
+        n_trials = results["n_trials"]
+
+        bar_width = 0.25
+        plt.bar([0], results["gains"]["mean"], bar_width, yerr=results["gains"]["sem"], label="gains")
+        plt.bar([bar_width], results["losses"]["mean"], bar_width, yerr=results["losses"]["sem"], label="losses")
+
+        ax.annotate('{} [n trials: {}]'.format(monkey, n_trials),
+                    xy=(0, 0), xycoords='axes fraction', xytext=(0, 1.1))
+
+        ax.set_ylim(0, 1)
+        plt.tick_params(
+            axis='x',  # changes apply to the x-axis
+            which='both',  # both major and minor ticks are affected
+            bottom='off',  # ticks along the bottom edge are off
+            top='off',  # ticks along the top edge are off
+            labelbottom='off')  # labels along the bottom edge are off
+
+        # # Axis labels
+        # plt.xlabel("Expected value of the two lotteries",
+        #            fontsize=self.axis_label_font_size)
+        plt.ylabel("Frequency with which the riskiest option is chosen",
+                   fontsize=self.axis_label_font_size)
+
+        ax.set_aspect(2)
+        plt.legend()
+
+        plt.savefig(filename=self.fig_name)
+        plt.close()
+
+
+def main(make_only_figures=True):
+
+    makedirs(folders["figures"], exist_ok=True)
 
     for monkey in ["Havane", "Gladys"]:
 
-        data = import_data(monkey=monkey, starting_point=starting_point, end_point=end_point)
+        starting_point = starting_points[monkey]
 
-        analyst = Analyst(data=data)
-        results = analyst.run()
+        b = Backup(monkey, "equalExpectedValue")
+        results = b.load()
+
+        if not make_only_figures or results is None:
+
+            data = import_data(monkey=monkey, starting_point=starting_point, end_point=end_point)
+            analyst = Analyst(data=data)
+            results = analyst.run()
+            b.save(results)
 
         log("N trials: {}".format(results["n_trials"]), "__main__")
 
-        fig_name = "{}/{}_equal_expected_value.pdf"\
-            .format(folders["figures"], monkey)
-
-        plot = Plot(fig_name=fig_name)
+        plot = Plot(folder=folders["figures"], monkey=monkey)
         plot.plot(results, monkey)
 
 

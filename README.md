@@ -22,6 +22,10 @@ You can access values running "analysis/progress_summary.py".
 
 3) For evaluating performances for 'true' trials, 
 run 'analysis/preference_towards_risk_against_expected_value'.
+
+
+#### Kahneman replication
+Run 'equal_expected_value.py'
  
 #### Modelling 
 
