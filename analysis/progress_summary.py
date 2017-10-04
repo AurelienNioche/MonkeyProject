@@ -24,7 +24,7 @@ def check_progress():
 
         progress = dict()
 
-        pa = ProgressAnalyst(p=data["p"], x0=data["x0"], x1=data["x1"], choice=data["choice"])
+        pa = ProgressAnalyst(p=data["p"], x0=data["x0"], choice=data["choice"])
 
         for key in ProgressAnalyst.control_conditions:
             progress[key] = pa.analyse(key)

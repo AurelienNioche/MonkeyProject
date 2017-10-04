@@ -1,16 +1,16 @@
 from pylab import np, plt
 from scipy.optimize import curve_fit
-from os import path, mkdir
+from os import makedirs
 
 from data_management.data_manager import import_data
 from utils.utils import log
-from analysis.analysis_parameters import folders, starting_point, end_point
+from analysis.analysis_parameters import folders, starting_points, end_point
 
 
 class RiskyChoiceAgainstExpectValuePlot(object):
 
     line_width = 2
-    axis_label_font_size = 12
+    axis_label_font_size = 8
     ticks_label_font_size = 8
     legend_font_size = 8
     comment_font_size = 8
@@ -186,10 +186,11 @@ class Analyst(object):
 
 def main():
 
-    if not path.exists(folders["figures"]):
-        mkdir(folders["figures"])
+    makedirs(folders["figures"], exist_ok=True)
 
     for monkey in ["Havane", "Gladys"]:
+
+        starting_point = starting_points[monkey]
 
         data = import_data(monkey=monkey, starting_point=starting_point, end_point=end_point)
 
