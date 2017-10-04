@@ -1,4 +1,4 @@
-from os import path, mkdir
+from os import makedirs
 from pylab import np, plt
 import itertools as it
 import pickle
@@ -6,24 +6,16 @@ from tqdm import tqdm
 from multiprocessing import Pool, cpu_count
 
 from data_management.data_manager import import_data
-from analysis.analysis_parameters import folders
 from analysis.modelling import AlternativesNKGetter, ModelRunner, LlsComputer, ProspectTheoryModel
+from analysis.analysis_parameters import \
+    folders, range_parameters, n_values_per_parameter, condition_evolution, starting_point
+
 from utils.utils import log
 
 
 class Analyst:
 
     name = "Analyst"
-
-    range_parameter_values = {
-        "positive_risk_aversion": [-0.8, 0.8],
-        "negative_risk_aversion": [-0.8, 0.8],
-        "probability_distortion": [0.5, 1.],
-        "loss_aversion": [-0.5, 0.5],
-        "temp": [0.1, 0.3]
-    }
-
-    n_values_per_parameter = 10
 
     def __init__(self, data, monkey):
 
@@ -154,8 +146,9 @@ class Analyst:
         log("Obtain data from model...", self.name)
         m = ModelRunner()
         m.run(alternatives=alternatives,
-              n_values_per_parameter=self.n_values_per_parameter,
-              range_parameter_values=self.range_parameter_values)
+              n_values_per_parameter=n_values_per_parameter,
+              range_parameters=range_parameters)
+
         parameters = m.parameters_list
         p = m.p_list
         log("Done.", self.name)
@@ -193,6 +186,7 @@ class Backup:
     def __init__(self, monkey, name):
         self.monkey = monkey
         self.backup_file = "{}/{}_{}.p".format(folders["results"], monkey, name)
+        makedirs(folders["results"], exist_ok=True)
 
     def save(self, data):
 
@@ -213,8 +207,7 @@ class Plot:
     @classmethod
     def plot(cls, monkey, data, name, cond):
 
-        if not path.exists(folders["figures"]):
-            mkdir(folders["figures"])
+        makedirs(folders["figures"], exist_ok=True)
 
         fig_name = "{}/{}_{}.pdf" \
             .format(folders["figures"], monkey, name)
@@ -249,10 +242,7 @@ class Plot:
 
 def main():
 
-    starting_point = "2016-12-01"  # "2017-03-01
-
-    cond = "pool"  # Choice: "day", "beginning_vs_end", "pool"
-    name = "evolution_param_{}".format(cond)
+    name = "evolution_param_{}".format(condition_evolution)
 
     for monkey in ["Havane", "Gladys"]:
         b = Backup(monkey=monkey, name=name)
@@ -262,12 +252,12 @@ def main():
             data = import_data(monkey=monkey, starting_point=starting_point)
 
             analyst = Analyst(data=data, monkey=monkey)
-            analyst.sort_data(cond)
+            analyst.sort_data(condition_evolution)
             results = analyst.run()
             b.save(data=results)
 
         p = Plot()
-        p.plot(monkey=monkey, data=results, name=name, cond=cond)
+        p.plot(monkey=monkey, data=results, name=name, cond=condition_evolution)
 
 
 if __name__ == "__main__":

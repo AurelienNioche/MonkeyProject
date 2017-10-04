@@ -23,23 +23,23 @@ class ModelRunner(object):
     p_list = None
 
     @classmethod
-    def prepare(cls, alternatives, range_parameter_values, n_values_per_parameter):
+    def prepare(cls, alternatives, range_parameters, n_values_per_parameter):
 
         cls.alternatives = alternatives
 
         cls.prepare_parameters_list(
-            range_parameter_values=range_parameter_values,
+            range_parameters=range_parameters,
             n_values_per_parameter=n_values_per_parameter
         )
 
     @classmethod
-    def prepare_parameters_list(cls, range_parameter_values, n_values_per_parameter):
+    def prepare_parameters_list(cls, range_parameters, n_values_per_parameter):
         
-        assert sorted(range_parameter_values.keys()) == ProspectTheoryModel.labels
+        assert sorted(range_parameters.keys()) == ProspectTheoryModel.labels
         
         possible_parameter_values = \
             {k: np.linspace(v[0], v[1], n_values_per_parameter) 
-             for k, v in range_parameter_values.items()}
+             for k, v in range_parameters.items()}
 
         cls.n_set_parameters = n_values_per_parameter ** len(possible_parameter_values)
         cls.parameters_list = [possible_parameter_values[i] for i in sorted(possible_parameter_values.keys())]
@@ -57,11 +57,11 @@ class ModelRunner(object):
         return ps
 
     @classmethod
-    def run(cls, alternatives, range_parameter_values, n_values_per_parameter):
+    def run(cls, alternatives, range_parameters, n_values_per_parameter):
 
         cls.prepare(
             alternatives=alternatives, 
-            range_parameter_values=range_parameter_values, 
+            range_parameters=range_parameters, 
             n_values_per_parameter=n_values_per_parameter)
 
         log("Launch run of model...", cls.name)
@@ -177,7 +177,7 @@ class AlternativesNKGetter(object):
 
 
 def get_model_data(npy_files, alternatives, 
-                   range_parameter_values,
+                   range_parameters,
                    n_values_per_parameter,
                    force=False):
 
@@ -192,7 +192,7 @@ def get_model_data(npy_files, alternatives,
 
         m = ModelRunner()
         m.run(alternatives=alternatives,
-              range_parameter_values=range_parameter_values,
+              range_parameters=range_parameters,
               n_values_per_parameter=n_values_per_parameter)
 
         try:
@@ -299,7 +299,7 @@ def main():
 
     n_values_per_parameter = 10
 
-    range_parameter_values = {
+    range_parameters = {
         "positive_risk_aversion": [-0.8, 0.8],
         "negative_risk_aversion": [-0.8, 0.8],
         "probability_distortion": [0.5, 1.],
@@ -320,7 +320,7 @@ def main():
         log("Getting model data for {}...".format(monkey), name="__main__")
         parameters, p = \
             get_model_data(
-                range_parameter_values=range_parameter_values,
+                range_parameters=range_parameters,
                 n_values_per_parameter=n_values_per_parameter,           
                 npy_files=files["model"], alternatives=alternatives, force=force)
 

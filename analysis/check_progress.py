@@ -206,7 +206,7 @@ class ProgressPerSession(object):
 
 def main():
 
-    starting_point = "2016-12-01"
+    starting_point = "2017-03-01"
 
     for monkey in ["Havane", "Gladys"]:
 
