@@ -1,5 +1,5 @@
 import itertools as it
-from os import path, mkdir
+from os import makedirs, path
 
 import numpy as np
 import json
@@ -278,8 +278,7 @@ def main():
     force = True
 
     for folder in folders.values():
-        if not path.exists(folder):
-            mkdir(folder)
+        makedirs(folder, exist_ok=True)
 
     files = dict()
     files["model"] = {

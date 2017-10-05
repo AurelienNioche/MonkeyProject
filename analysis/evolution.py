@@ -4,6 +4,9 @@ import itertools as it
 from tqdm import tqdm
 from multiprocessing import Pool, cpu_count
 
+from scipy.signal import savgol_filter
+from scipy.interpolate import interp1d
+
 from data_management.data_manager import import_data
 from data_management.data_sorter import sort_data
 
@@ -106,7 +109,7 @@ class Plot:
     loc = 'center left'
 
     @classmethod
-    def plot(cls, monkey, data, name, cond):
+    def plot(cls, monkey, data, name, cond, smooth=True):
 
         makedirs(folders["figures"], exist_ok=True)
 
@@ -120,7 +123,25 @@ class Plot:
 
         for key in sorted(ProspectTheoryModel.labels):
 
-            ax.plot(x, data[key], linestyle='-', marker='o', label=key.replace("_", " ").capitalize())
+            y = data[key]
+            y_label = key.replace("_", " ").capitalize()
+
+            if smooth is True:
+
+                ax.scatter(x, y, marker='o', s=10)
+
+                itp = interp1d(x, y, kind='nearest')
+
+                xx = np.linspace(x.min(), x.max(), len(y))
+
+                window_size = len(y) - 1 if len(y) // 2 != 0 else len(y) - 2
+                poly_order = 3
+
+                y_hat = savgol_filter(y, window_size, poly_order)
+                ax.plot(xx, y_hat, linewidth=2, label=key)
+
+            else:
+                ax.plot(x, y, linestyle='-', marker='o', label=y_label)
 
         ax.annotate(
             '{} [n dates: {}]'.format(monkey, data["n_dates"]),

@@ -2,9 +2,9 @@ from os import path
 from utils.utils import today
 
 folders = {
-    "figures": path.expanduser("~/Desktop/MonkeyResults{}/figures".format(today())),
-    "results": path.expanduser("~/Desktop/MonkeyResults{}/modelling".format(today())),
-    "npy_files": path.expanduser("~/Desktop/MonkeyResults{}/monkey_npy_files".format(today()))
+    "figures": path.expanduser("~/Desktop/MonkeyResults{}/figures".format("2017-10-04")),
+    "results": path.expanduser("~/Desktop/MonkeyResults{}/modelling".format("2017-10-04")),
+    "npy_files": path.expanduser("~/Desktop/MonkeyResults{}/monkey_npy_files".format("2017-10-04"))
 }
 
 range_parameters = {
