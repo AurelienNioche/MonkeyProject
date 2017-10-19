@@ -1,5 +1,5 @@
 from pylab import np, plt
-from scipy.stats import sem
+from scipy.stats import sem, wilcoxon, chisquare
 from os import makedirs
 
 from data_management.data_manager import import_data
@@ -103,22 +103,37 @@ class Analyst:
     @staticmethod
     def compute(sorted_data):
 
+        # ----------- First analysis ------------------ #
+
+        cond = ("gains", "losses")
+
+        r = {c: [] for c in cond}
+
         print()
-        for cond in ("gains", "losses"):
-            print("For {}:".format(cond))
-            a = sorted(sorted_data[cond].keys())
+        for c in cond:
+            print("For {}:".format(c))
+            a = sorted(sorted_data[c].keys())
             for i, e in enumerate(a):
-                print(i, e, "{:.2f} [{:.2f}]".format(np.mean(sorted_data[cond][e]), sem(sorted_data[cond][e])))
+                m = np.mean(sorted_data[c][e])
+                r[c].append(m)
+                print(i, e, "{:.2f} [{:.2f}]".format(m, sem(sorted_data[c][e])))
             print()
         print()
 
+        print(wilcoxon(r["gains"], r["losses"]))
+        print(chisquare(r["gains"]))
+        print(chisquare(r["losses"]))
+        print()
+
+        # --------------- Second analysis ---------------- #
+
         results = {}
 
-        for cond in ["gains", "losses"]:
+        for c in cond:
 
             values = []
 
-            for value in sorted_data[cond].values():
+            for value in sorted_data[c].values():
                 values += value
 
             # freq, n = [], []
@@ -131,7 +146,7 @@ class Analyst:
             # variance = np.average((np.asarray(freq) - average) ** 2, weights=n)
             # std = math.sqrt(variance)
 
-            results[cond] = {
+            results[c] = {
                 "mean": np.mean(values),
                 "sem": sem(values)
             }
