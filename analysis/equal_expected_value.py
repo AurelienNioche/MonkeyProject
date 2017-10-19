@@ -101,31 +101,9 @@ class Analyst:
         return sorted_data
 
     @staticmethod
-    def compute(sorted_data):
-
-        # ----------- First analysis ------------------ #
+    def analyse_pooled_four_categories(sorted_data):
 
         cond = ("gains", "losses")
-
-        r = {c: [] for c in cond}
-
-        print()
-        for c in cond:
-            print("For {}:".format(c))
-            a = sorted(sorted_data[c].keys())
-            for i, e in enumerate(a):
-                m = np.mean(sorted_data[c][e])
-                r[c].append(m)
-                print(i, e, "{:.2f} [{:.2f}]".format(m, sem(sorted_data[c][e])))
-            print()
-        print()
-
-        print(wilcoxon(r["gains"], r["losses"]))
-        print(chisquare(r["gains"]))
-        print(chisquare(r["losses"]))
-        print()
-
-        # --------------- Second analysis ---------------- #
 
         results = {}
 
@@ -153,10 +131,43 @@ class Analyst:
         results["n_trials"] = sorted_data["n_trials"]
         return results
 
-    def run(self):
+    @staticmethod
+    def analyse_by_pairs_of_lotteries(sorted_data):
 
-        sorted_data = self.get_sorted_data()
-        return self.compute(sorted_data)
+        r = {}
+
+        cond = ("gains", "losses")
+        print()
+        for c in cond:
+            print("For {}:".format(c))
+            a = sorted(sorted_data[c].keys())
+            for i, l in enumerate(a):
+                m = np.mean(sorted_data[c][l])
+                e = sem(sorted_data[c][l])
+
+                n = len(sorted_data[c][l])
+
+                ev = l[0][0] * l[0][1]
+
+                r[ev] = {
+                    "m": m,
+                    "n": n,
+                    "e": e,
+                    "l": l
+                }
+                print(
+                    i, l, "m = {:.2f} [{:.2f}], ev = {}, n = {}".format(m, e, ev, n),
+                )
+            print()
+        print()
+
+        #
+        # print(wilcoxon(r["gains"], r["losses"]))
+        # print(chisquare(r["gains"]))
+        # print(chisquare(r["losses"]))
+        # print()
+
+        return r
 
 
 class Plot(object):
@@ -202,7 +213,64 @@ class Plot(object):
         plt.close()
 
 
-def main(make_only_figures=False):
+class PlotByPairs(object):
+
+    axis_label_font_size = 10
+
+    def __init__(self, folder, monkey):
+
+        self.fig_name = "{}/{}_equal_expected_value_by_pairs.pdf"\
+            .format(folder, monkey)
+
+    def plot(self, results, monkey):
+
+        evs = sorted(np.unique(np.absolute([i for i in results.keys()])))
+
+        labels = ["{}\n\n{}\nvs\n{}\n".format(i, results[i]["l"][0], results[i]["l"][1]) for i in evs]
+
+        n = len(evs)
+
+        means1 = [results[i]["m"] for i in evs]
+        means2 = [results[-i]["m"] for i in evs]
+
+        sem1 = [results[i]["e"] for i in evs]
+        sem2 = [results[-i]["e"] for i in evs]
+
+        fig, ax = plt.subplots()
+
+        ind = np.arange(n)  # the x locations for the groups
+        width = 0.35  # the width of the bars
+
+        rct_1 = ax.bar(ind, means1, width, color='C0', yerr=sem1)
+        rct_2 = ax.bar(ind + width, means2, width, color='C1', yerr=sem2)
+
+        ax.set_ylabel('Success rate')
+        ax.set_ylim([0, 1])
+        ax.set_title(monkey)
+
+        ax.set_xticks(np.arange(n) + width / 2)
+        ax.set_xticklabels(labels=labels)
+
+        ax.legend((rct_1[0], rct_2[0]), ('Positive amounts', 'Negative amounts'))
+
+        # ax.annotate('{} [n trials: {}]'.format(monkey, n_trials),
+        #             xy=(0, 0), xycoords='axes fraction', xytext=(0, 1.1))
+
+        ax.set_ylim(0, 1)
+
+        # # Axis labels
+        plt.xlabel("(Absolute) Expected value of the two lotteries",
+                   fontsize=self.axis_label_font_size)
+        plt.ylabel("Frequency with which the riskiest option is chosen",
+                   fontsize=self.axis_label_font_size)
+
+        ax.set_aspect(1.5)
+
+        plt.savefig(filename=self.fig_name)
+        plt.close()
+
+
+def main(make_only_figures=True):
 
     makedirs(folders["figures"], exist_ok=True)
 
@@ -211,19 +279,26 @@ def main(make_only_figures=False):
         starting_point = starting_points[monkey]
 
         b = Backup(monkey, "equalExpectedValue")
-        results = b.load()
+        sorted_data = b.load()
 
-        if not make_only_figures or results is None:
+        if not make_only_figures or sorted_data is None:
 
             data = import_data(monkey=monkey, starting_point=starting_point, end_point=end_point)
             analyst = Analyst(data=data)
-            results = analyst.run()
-            b.save(results)
+            sorted_data = analyst.get_sorted_data()
 
-        log("N trials: {}".format(results["n_trials"]), "__main__")
+            b.save(sorted_data)
+
+        results1 = Analyst.analyse_pooled_four_categories(sorted_data)
+        results2 = Analyst.analyse_by_pairs_of_lotteries(sorted_data)
+
+        log("N trials: {}".format(sorted_data["n_trials"]), "__main__")
 
         plot = Plot(folder=folders["figures"], monkey=monkey)
-        plot.plot(results, monkey)
+        plot.plot(results1, monkey)
+
+        plot = PlotByPairs(folder=folders["figures"], monkey=monkey)
+        plot.plot(results2, monkey)
 
 
 if __name__ == "__main__":
