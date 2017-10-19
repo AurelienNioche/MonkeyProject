@@ -73,7 +73,7 @@ class Plot:
             'identical x, negative x0'
         ]
 
-        labels = ['Identical p\n(diff amounts)', 'Identical amount\n(diff p)', 'Negative vs positive amount']
+        labels = ['Negative vs positive amount', 'Identical p\n(diff amounts)', 'Identical amount\n(diff p)']
 
         other_cond = 'identical p, positive vs negative x0'
 
@@ -92,10 +92,11 @@ class Plot:
         ind = np.arange(n)  # the x locations for the groups
         width = 0.35  # the width of the bars
 
-        rct_1 = ax.bar(ind, means_1, width, color='C0', yerr=sem_1)
-        rct_2 = ax.bar(ind + width, means_2, width, color='C1', yerr=sem_2)
+        # Red bars first
+        ax.bar(width / 2,  mean_3, width, color='C3', yerr=sem_3)
 
-        ax.bar(n + width / 2,  mean_3, width, color='C3', yerr=sem_3)
+        rct_1 = ax.bar(1 + ind, means_1, width, color='C0', yerr=sem_1)
+        rct_2 = ax.bar(1 + ind + width, means_2, width, color='C1', yerr=sem_2)
 
         ax.set_ylabel('Success rate')
         ax.set_ylim([0, 1])
