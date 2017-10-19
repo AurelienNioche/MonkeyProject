@@ -103,6 +103,15 @@ class Analyst:
     @staticmethod
     def compute(sorted_data):
 
+        print()
+        for cond in ("gains", "losses"):
+            print("For {}:".format(cond))
+            a = sorted(sorted_data[cond].keys())
+            for i, e in enumerate(a):
+                print(i, e, "{:.2f} [{:.2f}]".format(np.mean(sorted_data[cond][e]), sem(sorted_data[cond][e])))
+            print()
+        print()
+
         results = {}
 
         for cond in ["gains", "losses"]:
@@ -178,7 +187,7 @@ class Plot(object):
         plt.close()
 
 
-def main(make_only_figures=True):
+def main(make_only_figures=False):
 
     makedirs(folders["figures"], exist_ok=True)
 
