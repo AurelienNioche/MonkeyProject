@@ -63,40 +63,42 @@ class Analyst:
 
         for t in range(n_trials):
 
-            if self.equal_expected_value(t):
+            if not self.equal_expected_value(t):
+                continue
 
-                if self.is_trial_with_riskiest_option_on_left(t):
+            if self.is_trial_with_riskiest_option_on_left(t):
 
-                    risky, safe = "left", "right"
+                risky, safe = "left", "right"
 
-                elif self.is_trial_with_riskiest_option_on_right(t):
+            elif self.is_trial_with_riskiest_option_on_right(t):
 
-                    risky, safe = "right", "left"
+                risky, safe = "right", "left"
 
-                if "risky" in locals():
+            else:
+                continue
 
-                    alternative = (
-                        (self.data["p"][risky][t], self.data["x0"][risky][t]),
-                        (self.data["p"][safe][t], self.data["x0"][safe][t])
-                    )
+            alternative = (
+                (self.data["p"][risky][t], self.data["x0"][risky][t]),
+                (self.data["p"][safe][t], self.data["x0"][safe][t])
+            )
 
-                    choose_risky = int(self.data["choice"][t] == risky)
+            choose_risky = int(self.data["choice"][t] == risky)
 
-                    if self.is_trial_with_gains_only(t):
-                        cond = "gains"
+            if self.is_trial_with_gains_only(t):
+                cond = "gains"
 
-                    elif self.is_trial_with_losses_only(t):
-                        cond = "losses"
+            elif self.is_trial_with_losses_only(t):
+                cond = "losses"
 
-                    else:
-                        continue
+            else:
+                continue
 
-                    if alternative not in sorted_data[cond].keys():
-                        sorted_data[cond][alternative] = []
+            if alternative not in sorted_data[cond].keys():
+                sorted_data[cond][alternative] = []
 
-                    sorted_data[cond][alternative].append(choose_risky)
+            sorted_data[cond][alternative].append(choose_risky)
 
-                    sorted_data["n_trials"] += 1
+            sorted_data["n_trials"] += 1
 
         return sorted_data
 
@@ -275,6 +277,8 @@ def main(make_only_figures=True):
     makedirs(folders["figures"], exist_ok=True)
 
     for monkey in ["Havane", "Gladys"]:
+
+        print("\nAnalysis for {}...".format(monkey))
 
         starting_point = starting_points[monkey]
 

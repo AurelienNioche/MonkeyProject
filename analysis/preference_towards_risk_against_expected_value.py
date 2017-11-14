@@ -135,19 +135,20 @@ class Analyst(object):
 
                     risky, safe = "right", "left"
 
-                if "risky" in locals():
+                else:
+                    continue
 
-                    alternative = (
-                        (self.data["p"][risky][t], self.data["x0"][risky][t]),
-                        (self.data["p"][safe][t], self.data["x0"][safe][t])
-                    )
+                alternative = (
+                    (self.data["p"][risky][t], self.data["x0"][risky][t]),
+                    (self.data["p"][safe][t], self.data["x0"][safe][t])
+                )
 
-                    choose_risky = int(self.data["choice"][t] == risky)
+                choose_risky = int(self.data["choice"][t] == risky)
 
-                    if alternative not in results.keys():
-                        results[alternative] = []
+                if alternative not in results.keys():
+                    results[alternative] = []
 
-                    results[alternative].append(choose_risky)
+                results[alternative].append(choose_risky)
 
         return results
 
@@ -157,17 +158,21 @@ class Analyst(object):
         risky_choice_means = []
         n_trials = 0
 
-        for alternative in results.keys():
+        r_keys = list(sorted(results.keys()))
 
-            expected_values_differences.append(
-                self.expected_value(alternative[0]) - self.expected_value(alternative[1])
-            )
+        for i, alternative in enumerate(r_keys):
 
-            risky_choice_means.append(
-                np.mean(results[alternative])
-            )
+            delta = self.expected_value(alternative[0]) - self.expected_value(alternative[1])
+            expected_values_differences.append(delta)
 
-            n_trials += len(results[alternative])
+            mean = np.mean(results[alternative])
+            risky_choice_means.append(mean)
+
+            n = len(results[alternative])
+
+            n_trials += n
+
+            print(i, alternative, ", delta: ", delta, ", mean: ", mean, ", n:", n)
 
         return expected_values_differences, risky_choice_means, n_trials
 
