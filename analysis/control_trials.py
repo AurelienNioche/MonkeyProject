@@ -149,13 +149,37 @@ class Analyst(object):
             data = self.sorted_data[cond]
             alternatives = sorted(list(data.keys()))
 
+            n_trials = []
+            means = []
+
             for i, alt in enumerate(alternatives):
                 n = len(data[alt])
                 mean = np.mean(data[alt])
+                n_trials.append(n)
 
                 self.results[cond][alt] = mean
 
+                means.append(mean)
+
                 print("{} {}: mean {}, n {}".format(i, alt, mean, n))
+
+            perc_75, perc_25 = np.percentile(means, [75, 25])
+
+            print()
+            print("Number of pairs of lotteries", len(n_trials))
+            print()
+            print()
+            print("The median of frequencies for {}: {:.02f} (IQR = {:.02f} -- {:.02f})".format(cond, np.median(means), perc_25, perc_75))
+            print()
+            print("Analysis of the number of trials")
+            print()
+
+            print("Min:", np.min(n_trials))
+            print("Max:", np.max(n_trials))
+            print("Median:", np.median(n_trials))
+            print("Mean:", np.mean(n_trials))
+            print("Std:", np.std(n_trials))
+            print("Sum:", np.sum(n_trials))
 
     def plot(self):
 
@@ -166,7 +190,7 @@ class Analyst(object):
         names = ["Loss vs gains", "Diff. pos. $x_0$,\nSame p", "Diff. neg. $x_0$,\nSame p",
                  "Diff. p,\nSame pos. $x_0", "Diff. p,\nSame neg. $x_0"]
 
-        colors = ["red", "C0", "C1", "C0", "C1"]
+        colors = ["black", "C0", "C1", "C0", "C1"]
         positions = list(range(n))
 
         x_scatter = []
@@ -229,6 +253,11 @@ def main(force=False):
     makedirs(folders["figures"], exist_ok=True)
 
     for monkey in ["Havane", "Gladys"]:
+
+        print()
+        print()
+        print(monkey.upper())
+        print()
 
         starting_point = starting_points[monkey]
 

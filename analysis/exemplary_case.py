@@ -117,22 +117,66 @@ class Analyst:
 
     def run(self, sorted_data):
 
-        cond = ("gains", "losses")
+        conditions = ("gains", "losses")
 
+        # For plot
         results = {}
 
-        for c in cond:
+        # For Chi2
+        import pandas as pd
+        from scipy import stats
+
+        data_frames = dict()
+
+        for c in conditions:
 
             pairs = list(sorted_data[c].keys())
             log("For condition {}, I got {} pair(s) of lotteries ({}).".format(c, len(pairs), pairs), name=self.name)
 
             assert len(pairs) == 1, 'I expected only one pair of lotteries to meet the conditions.'
 
-            mean = np.mean(sorted_data[c][pairs[0]])
-            n = len(sorted_data[c][pairs[0]])
+            chosen = sorted_data[c][pairs[0]]
+
+            mean = np.mean(chosen)
+            n = len(chosen)
             results[c] = mean
 
-            print("Observed mean is {:.2f} ({} trials)".format(mean, n))
+            print("Observed freq is {:.2f} ({} trials)".format(mean, n))
+
+            # For Chi2
+            n_hit = np.sum(chosen)
+
+            data_frames[c] = pd.DataFrame(["yes"] * n_hit + ["no"] * (n - n_hit))
+            data_frames[c] = pd.crosstab(index= data_frames[c][0], columns="count")
+
+        print(data_frames)
+
+        first_sample = data_frames["gains"]
+        second_sample = data_frames["losses"]
+
+        observed = first_sample
+        expected = second_sample/len(second_sample) * len(first_sample)
+
+        chi_squared_stat = (((observed - expected) ** 2) / expected).sum()
+
+        print()
+        print("Chi squared stat")
+        print(chi_squared_stat)
+        print()
+
+        crit = stats.chi2.ppf(q=0.95,  # Find the critical value for 95% confidence*
+                              df=1)  # Df = number of variable categories - 1
+
+        print()
+        print("Critical value")
+        print(crit)
+
+        p_value = 1 - stats.chi2.cdf(x=chi_squared_stat,  # Find the p-value
+                                     df=1)
+
+        print()
+        print("P value")
+        print(p_value)
 
         return results
 

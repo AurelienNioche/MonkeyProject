@@ -33,35 +33,37 @@ class SoftmaxPlot(object):
 
     def plot(self):
 
-        fig = plt.figure(figsize=(11.5, 7), dpi=300, facecolor='w')
+        #fig = plt.figure()
 
-        fig.subplots_adjust(left=0.15, right=0.9, bottom=0.2, top=0.9)
+        plt.subplots_adjust(left=0.15, right=0.9, bottom=0.2, top=0.9)
 
-        ax = fig.add_subplot(1, 1, 1)
+        #ax = fig.add_subplot(1, 1, 1)
 
         X = np.arange(-1, 1, 0.01)
-        ax.plot(X, self.softmax(X), label=r'$\tau = {}$'.format(self.temp),
+        plt.plot(X, self.softmax(X), label=r'$\tau = {}$'.format(self.temp),
                 color="black", linewidth=self.line_width)
 
-        ax.set_xlabel('Difference between the (subjective) value of lottery $L1$ and $L2$',
+        plt.xlabel('Difference between the (subjective) value of lottery $L1$ and $L2$',
                       fontsize=self.label_font_size, labelpad=22)
-        ax.set_ylabel('Probability of choosing lottery $L1$', fontsize=self.label_font_size, labelpad=12)
+        plt.ylabel('Probability of choosing lottery $L1$', fontsize=self.label_font_size, labelpad=12)
 
-        ax.tick_params(labelsize=self.ticks_label_size)
+        # ax.tick_params(labelsize=self.ticks_label_size)
 
-        ax.set_ylim(0, 1)
+        plt.ylim(0, 1)
+        plt.figaspect(1)
 
         # ax.spines['left'].set_position(('data', 0))
-        ax.spines['right'].set_color('none')
-        ax.xaxis.set_ticks_position('bottom')
-        ax.yaxis.set_ticks_position('left')
-        # ax.spines['bottom'].set_position(('data', 0))
-        ax.spines['top'].set_color('none')
+        #ax.spines['right'].set_color('none')
+        #ax.xaxis.set_ticks_position('bottom')
+        #ax.yaxis.set_ticks_position('left')
+        ## ax.spines['bottom'].set_position(('data', 0))
+        #ax.spines['top'].set_color('none')
 
+        #ax.set_aspect("equal")
         # Add legend
         # ax.legend(bbox_to_anchor=(0.2, 0.98), fontsize=self.legend_font_size, frameon=False)
 
-        fig.savefig(self.fig_name)
+        plt.savefig(self.fig_name)
         plt.close()
 
 

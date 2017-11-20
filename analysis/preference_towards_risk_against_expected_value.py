@@ -5,6 +5,7 @@ from os import makedirs
 from data_management.data_manager import import_data
 from utils.utils import log
 from analysis.analysis_parameters import folders, starting_points, end_point
+from analysis.backup import Backup
 
 
 def get_script_name():
@@ -92,10 +93,13 @@ class Analyst(object):
 
         expected_values_differences = []
         risky_choice_means = []
-        n_trials = 0
+        n_trials = []
 
         r_keys = list(sorted(results.keys()))
 
+        print()
+        print("Pairs of lotteries used:")
+        print()
         for i, alternative in enumerate(r_keys):
 
             delta = self.expected_value(alternative[0]) - self.expected_value(alternative[1])
@@ -106,11 +110,26 @@ class Analyst(object):
 
             n = len(results[alternative])
 
-            n_trials += n
+            n_trials.append(n)
 
             print(i, alternative, ", delta: ", delta, ", mean: ", mean, ", n:", n)
 
-        return expected_values_differences, risky_choice_means, n_trials
+        print()
+        print("Number of pairs of lotteries", len(n_trials))
+
+        print()
+        print("Analysis of the number of trials")
+        print()
+
+        print("Min:", np.min(n_trials))
+        print("Max:", np.max(n_trials))
+        print("Median:", np.median(n_trials))
+        print("Mean:", np.mean(n_trials))
+        print("Std:", np.std(n_trials))
+        print("Sum:", np.sum(n_trials))
+
+        print()
+        return expected_values_differences, risky_choice_means, np.sum(n_trials)
 
     def run(self, condition):
 
@@ -188,7 +207,7 @@ class RiskyChoiceAgainstExpectValuePlot(object):
         plt.tick_params(axis='both', which='major', labelsize=self.ticks_label_font_size)
         plt.tick_params(axis='both', which='minor', labelsize=self.ticks_label_font_size)
 
-        plt.savefig(filename=fig_name)
+        plt.savefig(fname=fig_name)
         plt.close()
 
     @staticmethod
@@ -197,15 +216,24 @@ class RiskyChoiceAgainstExpectValuePlot(object):
         return y
 
 
-def main():
+def main(force=False):
 
     makedirs(folders["figures"], exist_ok=True)
 
     for monkey in ["Havane", "Gladys"]:
 
-        starting_point = starting_points[monkey]
+        print()
+        print(monkey.upper())
+        print()
 
-        data = import_data(monkey=monkey, starting_point=starting_point, end_point=end_point)
+        b = Backup(monkey, get_script_name())
+        data = b.load()
+
+        if force is True or data is None:
+
+            starting_point = starting_points[monkey]
+            data = import_data(monkey=monkey, starting_point=starting_point, end_point=end_point)
+            b.save(data)
 
         analyst = Analyst(data=data)
 
