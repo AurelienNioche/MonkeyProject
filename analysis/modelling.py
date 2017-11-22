@@ -270,12 +270,10 @@ def treat_results(monkey, lls_list, parameters, json_file):
         json.dump(result, file)
 
 
-def main():
+def main(force=False):
 
     from analysis.analysis_parameters import \
         folders, range_parameters, n_values_per_parameter, starting_points, end_point
-
-    force = True
 
     for folder in folders.values():
         makedirs(folder, exist_ok=True)
