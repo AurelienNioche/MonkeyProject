@@ -188,7 +188,7 @@ class Analyst(object):
         n = len(self.control_conditions)
 
         names = ["Loss vs gains", "Diff. pos. $x_0$,\nSame p", "Diff. neg. $x_0$,\nSame p",
-                 "Diff. p,\nSame pos. $x_0", "Diff. p,\nSame neg. $x_0"]
+                 "Diff. p,\nSame pos. $x_0$", "Diff. p,\nSame neg. $x_0$"]
 
         colors = ["black", "C0", "C1", "C0", "C1"]
         positions = list(range(n))
@@ -215,7 +215,7 @@ class Analyst(object):
 
         ax.scatter(x_scatter, y_scatter, c=colors_scatter, s=30, alpha=1, linewidth=0.0, zorder=2)
 
-        plt.xticks(positions, names, fontsize=8)
+        plt.xticks(positions, names, fontsize=11)
 
         bp = ax.boxplot(values_box_plot, positions=positions, labels=names, showfliers=False, zorder=1)
 
@@ -227,7 +227,7 @@ class Analyst(object):
             for b in bp[e]:
                 b.set_alpha(0.5)
 
-        plt.xlabel("\nType of control")
+        plt.xlabel("\nType of control", fontsize=14)
 
         ax.set_ylim(0, 1.02)
 
