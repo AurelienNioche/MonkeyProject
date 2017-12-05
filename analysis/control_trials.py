@@ -223,7 +223,7 @@ class Analyst(object):
             median.set(color="black")
             median.set_alpha(0.5)
 
-        for e in ['boxes','caps','whiskers']:
+        for e in ['boxes', 'caps', 'whiskers']:
             for b in bp[e]:
                 b.set_alpha(0.5)
 
