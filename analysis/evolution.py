@@ -5,7 +5,7 @@ from tqdm import tqdm
 from multiprocessing import Pool, cpu_count
 
 from scipy.signal import savgol_filter
-from scipy.interpolate import interp1d
+# from scipy.interpolate import interp1d
 
 from data_management.data_manager import import_data
 from data_management.data_sorter import sort_data
@@ -130,7 +130,7 @@ class Plot:
 
                 ax.scatter(x, y, marker='o', s=10)
 
-                itp = interp1d(x, y, kind='nearest')
+                # itp = interp1d(x, y, kind='nearest')
 
                 xx = np.linspace(x.min(), x.max(), len(y))
 
