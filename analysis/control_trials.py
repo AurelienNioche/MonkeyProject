@@ -15,7 +15,7 @@ def get_script_name():
     return __file__.split("/")[-1].split(".py")[0]
 
 
-class Analyst(object):
+class Analyst:
 
     control_conditions = [
         "identical p, positive vs negative x0",
@@ -25,14 +25,13 @@ class Analyst(object):
         "identical x, negative x0"
     ]
 
-
-
     name = "Analyst"
 
-    def __init__(self, data, fig_name="figure.pdf"):
+    def __init__(self, data, fig_name="figure.pdf", monkey=""):
 
         self.data = data
         self.fig_name = fig_name
+        self.monkey = monkey
 
         self.sorted_data = None
         self.results = None
@@ -187,8 +186,8 @@ class Analyst(object):
 
         n = len(self.control_conditions)
 
-        names = ["Loss vs gains", "Diff. pos. $x_0$,\nSame p", "Diff. neg. $x_0$,\nSame p",
-                 "Diff. p,\nSame pos. $x_0$", "Diff. p,\nSame neg. $x_0$"]
+        names = ["Loss\nvs\ngains", "Diff. $x_0$ +\nSame p", "Diff. $x_0$ -\nSame p",
+                 "Diff. p\nSame $x_0$ +", "Diff. p\nSame $x_0$ -"]
 
         colors = ["black", "C0", "C1", "C0", "C1"]
         positions = list(range(n))
@@ -213,10 +212,18 @@ class Analyst(object):
                 x_scatter.append(i)
                 colors_scatter.append(colors[i])
 
+        fontsize = 10
+
         ax.scatter(x_scatter, y_scatter, c=colors_scatter, s=30, alpha=1, linewidth=0.0, zorder=2)
 
-        plt.xticks(positions, names, fontsize=11)
+        plt.xticks(positions, names, fontsize=fontsize)
+        plt.xlabel("Type of control\nMonkey {}.".format(self.monkey[0]), fontsize=fontsize)
 
+        plt.yticks(np.arange(0.4, 1.1, 0.2), fontsize=fontsize)
+        plt.ylabel("Success rate", fontsize=fontsize)
+        ax.set_ylim(0.35, 1.02)
+
+        # Boxplot
         bp = ax.boxplot(values_box_plot, positions=positions, labels=names, showfliers=False, zorder=1)
 
         for median in bp['medians']:
@@ -227,13 +234,7 @@ class Analyst(object):
             for b in bp[e]:
                 b.set_alpha(0.5)
 
-        plt.xlabel("\nType of control", fontsize=14)
-
-        ax.set_ylim(0, 1.02)
-
-        plt.ylabel("Success rate")
-
-        # ax.set_aspect(2)
+        ax.set_aspect(3)
         # plt.legend()
 
         plt.tight_layout()
@@ -272,7 +273,7 @@ def main(force=False):
             data = import_data(monkey=monkey, starting_point=starting_point, end_point=end_point)
             b.save(data)
 
-        analyst = Analyst(data=data, fig_name=fig_name)
+        analyst = Analyst(data=data, fig_name=fig_name, monkey=monkey)
         analyst.run()
 
 

@@ -293,7 +293,7 @@ def main(force=False):
                 "k": "{}/{}_{}.npy".format(folders["npy_files"], monkey, "k"),
             },
             "LLS": "{}/{}_{}.npy".format(folders["npy_files"], monkey, "lls"),
-            "result": "{}/{}_{}.json".format(folders["results"], monkey, "result")
+            "fit": "{}/{}_{}.json".format(folders["fit"], monkey, "fit")
         }
 
     monkeys = ["Gladys", "Havane"]
@@ -326,7 +326,7 @@ def main(force=False):
 
         treat_results(
             monkey=monkey, lls_list=lls_list, parameters=parameters,
-            json_file=files[monkey]["result"])
+            json_file=files[monkey]["fit"])
 
         log("Done!", name="__main__")
 

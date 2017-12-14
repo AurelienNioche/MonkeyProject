@@ -11,8 +11,9 @@ class UtilityFunctionPlot(object):
     reward_max = 3
     reward_min = -3
     n_points = 1000
-    axis_label_font_size = 15
-    ticks_label_font_size = 8
+    axis_label_font_size = 20
+    ticks_label_font_size = 14
+    line_width = 3
 
     def __init__(self, parameters, monkey):
 
@@ -42,7 +43,7 @@ class UtilityFunctionPlot(object):
         X[:] = np.divide(X, self.reward_max)
 
         ax = plt.gca()
-        ax.plot(X, Y, color="black", linewidth=2)
+        ax.plot(X, Y, color="black", linewidth=self.line_width)
 
         ax.spines['left'].set_position(('data', 0))
         ax.spines['right'].set_color('none')
@@ -52,6 +53,7 @@ class UtilityFunctionPlot(object):
         ax.spines['top'].set_color('none')
 
         ax.set_ylim([-1, 1])
+        ax.set_xlim([-1, 1])
 
         ax.set_xlabel("$x$", rotation=0, position=(0.9, None), fontsize=self.axis_label_font_size)
         ax.set_ylabel("$u(x)$", rotation=0, position=(None, 0.9), fontsize=self.axis_label_font_size)
@@ -59,18 +61,29 @@ class UtilityFunctionPlot(object):
         plt.tick_params(axis='both', which='major', labelsize=self.ticks_label_font_size)
         plt.tick_params(axis='both', which='minor', labelsize=self.ticks_label_font_size)
 
-        plt.savefig(filename=self.fig_name)
+        plt.xticks([-1, -0.5, 0.5, 1])
+        plt.yticks([-1, -0.5, 0.5, 1])
+
+        ax.set_aspect(1)
+
+        plt.tight_layout()
+
+        plt.savefig(fname=self.fig_name)
         plt.close()
 
 
 def main():
 
     for monkey in ["Gladys", "Havane"]:
-        with open("{}/{}_result.json".format(folders["results"], monkey)) as f:
-            data = json.load(f)
+        try:
+            with open("{}/{}_result.json".format(folders["fit"], monkey)) as f:
+                data = json.load(f)
+        except (FileNotFoundError, KeyError):
+            raise Exception("Fitting of data should be done before the utility function plot.")
 
         ufp = UtilityFunctionPlot(monkey=monkey, parameters=data)
         ufp.plot()
+
 
 if __name__ == "__main__":
 

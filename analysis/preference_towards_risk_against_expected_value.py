@@ -148,11 +148,12 @@ class Analyst(object):
 
 class RiskyChoiceAgainstExpectValuePlot(object):
 
-    line_width = 2
-    axis_label_font_size = 8
-    ticks_label_font_size = 8
-    legend_font_size = 8
-    comment_font_size = 8
+    line_width = 3
+    axis_label_font_size = 20
+    ticks_label_font_size = 14
+    legend_font_size = 14
+    comment_font_size = 14
+    point_size = 100
 
     def __init__(self):
 
@@ -175,7 +176,7 @@ class RiskyChoiceAgainstExpectValuePlot(object):
         except RuntimeError as e:
             print(e)
 
-        plt.plot(x_data, y_data, 'o', color=color, label='data')
+        plt.scatter(x_data, y_data, color=color, label='data', s=self.point_size)
 
         print("Plot results coming from ", n_trials, " trials.")
 
@@ -188,12 +189,12 @@ class RiskyChoiceAgainstExpectValuePlot(object):
         #          fontsize=self.comment_font_size)
 
         # Add legend
-        plt.legend(loc='upper left', fontsize=self.legend_font_size)
+        # plt.legend(loc='upper left', fontsize=self.legend_font_size)
 
         # Axis labels
-        plt.xlabel("Difference between the expected values of the riskiest option and the safest option",
+        plt.xlabel("$EV_{\mathrm{Riskiest\,Option}} - EV_{\mathrm{Safest\,Option}}$",
                    fontsize=self.axis_label_font_size)
-        plt.ylabel("Frequency with which the riskiest option is chosen",
+        plt.ylabel("F(Choose riskiest option)",
                    fontsize=self.axis_label_font_size)
 
         # Remove top and right borders
@@ -203,6 +204,8 @@ class RiskyChoiceAgainstExpectValuePlot(object):
         ax.yaxis.set_ticks_position('left')
         ax.spines['bottom'].set_position(('data', 0))
         ax.spines['top'].set_color('none')
+
+        plt.tight_layout()
 
         plt.tick_params(axis='both', which='major', labelsize=self.ticks_label_font_size)
         plt.tick_params(axis='both', which='minor', labelsize=self.ticks_label_font_size)
@@ -226,7 +229,7 @@ def main(force=False):
         print(monkey.upper())
         print()
 
-        b = Backup(monkey, get_script_name())
+        b = Backup(monkey, "data")
         data = b.load()
 
         if force is True or data is None:

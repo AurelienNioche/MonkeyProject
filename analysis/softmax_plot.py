@@ -7,15 +7,16 @@ from analysis.analysis_parameters import folders
 
 class SoftmaxPlot(object):
 
-    label_font_size = 12
-    ticks_label_size = 8
-    legend_font_size = 12
+    label_font_size = 20
+    ticks_label_size = 14
+    # legend_font_size = 12
 
-    line_width = 2
+    line_width = 3
 
     def __init__(self, temp, monkey):
 
         self.temp = temp
+        self.monkey = monkey
         self.fig_name = self.get_fig_name(monkey)
 
     def get_fig_name(self, monkey):
@@ -33,45 +34,47 @@ class SoftmaxPlot(object):
 
     def plot(self):
 
-        #fig = plt.figure()
+        # fig = plt.figure()
+        # plt.subplots_adjust(left=0.15, right=0.9, bottom=0.2, top=0.9)
 
-        plt.subplots_adjust(left=0.15, right=0.9, bottom=0.2, top=0.9)
+        x = np.arange(-1, 1, 0.01)
+        plt.plot(
+            x, self.softmax(x), label=r'$\tau = {}$'.format(self.temp),
+            color="black", linewidth=self.line_width)
 
-        #ax = fig.add_subplot(1, 1, 1)
-
-        X = np.arange(-1, 1, 0.01)
-        plt.plot(X, self.softmax(X), label=r'$\tau = {}$'.format(self.temp),
-                color="black", linewidth=self.line_width)
-
-        plt.xlabel('Difference between the (subjective) value of lottery $L1$ and $L2$',
-                      fontsize=self.label_font_size, labelpad=22)
-        plt.ylabel('Probability of choosing lottery $L1$', fontsize=self.label_font_size, labelpad=12)
-
-        # ax.tick_params(labelsize=self.ticks_label_size)
+        plt.xlabel(
+            '$U(L_1) - U(L_2)$\nMonkey {}.'.format(self.monkey[0]),
+            fontsize=self.label_font_size, labelpad=22)
+        plt.ylabel('P(Choose $L_1$)', fontsize=self.label_font_size, labelpad=12)
 
         plt.ylim(0, 1)
         plt.figaspect(1)
 
-        # ax.spines['left'].set_position(('data', 0))
-        #ax.spines['right'].set_color('none')
-        #ax.xaxis.set_ticks_position('bottom')
-        #ax.yaxis.set_ticks_position('left')
-        ## ax.spines['bottom'].set_position(('data', 0))
-        #ax.spines['top'].set_color('none')
+        ax = plt.gca()
 
-        #ax.set_aspect("equal")
+        ax.spines['right'].set_color('none')
+        ax.xaxis.set_ticks_position('bottom')
+        ax.yaxis.set_ticks_position('left')
+        ax.spines['top'].set_color('none')
+
+        plt.xticks([-1, -0.5, 0, 0.5, 1], fontsize=self.ticks_label_size)
+        plt.yticks([0, 0.25, 0.5, 0.75, 1], fontsize=self.ticks_label_size)
+
         # Add legend
         # ax.legend(bbox_to_anchor=(0.2, 0.98), fontsize=self.legend_font_size, frameon=False)
+
+
+
+        plt.tight_layout()
 
         plt.savefig(self.fig_name)
         plt.close()
 
 
 def main():
-
     for monkey in ["Havane", "Gladys"]:
 
-        with open("{}/{}_result.json".format(folders["results"], monkey)) as f:
+        with open("{}/{}_result.json".format(folders["fit"], monkey)) as f:
             data = json.load(f)
 
         sp = SoftmaxPlot(temp=data["temp"], monkey=monkey)

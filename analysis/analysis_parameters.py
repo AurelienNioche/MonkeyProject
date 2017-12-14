@@ -1,11 +1,9 @@
 from os import path
 from utils.utils import today
 
-folders = {
-    "figures": path.expanduser("~/Desktop/MonkeyResults{}/figures".format("2017-10-04")),
-    "results": path.expanduser("~/Desktop/MonkeyResults{}/modelling".format("2017-10-04")),
-    "npy_files": path.expanduser("~/Desktop/MonkeyResults{}/monkey_npy_files".format("2017-10-04"))
-}
+folder_path = path.expanduser("~/GoogleDrive/SBGProject/MonkeyProject-master/MonkeyResults2017-10-04")
+
+folders = {key: folder_path + "/" + key for key in ["figures", "fit", "npy_files", "pickle_files"]}
 
 range_parameters = {
     "positive_risk_aversion": [-0.9, 0.9],
@@ -23,6 +21,6 @@ starting_points = \
 
 n_values_per_parameter = 10
 
-end_point = today()
+end_point = "2017-10-01"  # today()
 
 condition_evolution = "pool"  # Choice: "day", "beginning_vs_end", "pool"

@@ -6,10 +6,12 @@ from analysis.analysis_parameters import folders
 
 class Backup:
 
+    folder = folders["pickle_files"]
+    makedirs(folder, exist_ok=True)
+
     def __init__(self, monkey, kind_of_analysis):
         self.monkey = monkey
-        self.backup_file = "{}/{}_{}.p".format(folders["results"], monkey, kind_of_analysis)
-        makedirs(folders["results"], exist_ok=True)
+        self.backup_file = "{}/{}_{}.p".format(self.folder, monkey, kind_of_analysis)
 
     def save(self, data):
 
@@ -22,5 +24,5 @@ class Backup:
             with open(self.backup_file, "rb") as f:
                 data = pickle.load(f)
                 return data
-        except Exception:
+        except FileNotFoundError:
             return

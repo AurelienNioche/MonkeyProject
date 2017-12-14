@@ -183,10 +183,12 @@ class Analyst:
 
 class Plot(object):
 
-    axis_label_font_size = 10
+    axis_label_font_size = 14
+    ticks_font_size = 14
 
     def __init__(self, folder, monkey):
 
+        self.monkey = monkey
         self.fig_name = "{}/{}_equal_expected_value.pdf"\
             .format(folder, monkey)
 
@@ -198,13 +200,14 @@ class Plot(object):
 
         ax.scatter(names, (results["gains"], results["losses"]), color=("C0", "C1"), s=80, zorder=2)
 
-        ax.plot(names, (results["gains"], results["losses"]), color="black", zorder=1, alpha=0.5)
-        ax.set_xlabel("\nLotteries potential outputs\n")
+        ax.plot(names, (results["gains"], results["losses"]), color="black", zorder=1, alpha=0.5, linestyle= '--')
+        ax.set_xlabel("\nLotteries potential outputs\nMonkey {}.".format(self.monkey[0]),
+                      fontsize=self.axis_label_font_size)
 
-        ax.set_ylim(0, 1)
-        plt.xticks(fontsize=8)
+        plt.xticks(fontsize=self.ticks_font_size)
 
-        ax.set_ylabel("Frequency with which the riskiest option is chosen",
+        plt.yticks([0, 0.25, 0.5, 0.75, 1], fontsize=self.ticks_font_size)
+        ax.set_ylabel("F(Choose riskiest option)",
                    fontsize=self.axis_label_font_size)
 
         ax.set_aspect(2)
@@ -227,15 +230,16 @@ def main(force=False):
 
         analyst = Analyst()
 
-        b = Backup(monkey, get_script_name())
-        sorted_data = b.load()
+        b = Backup(monkey, "data")
+        data = b.load()
 
-        if force is True or sorted_data is None:
+        if force is True or data is None:
 
             data = import_data(monkey=monkey, starting_point=starting_point, end_point=end_point)
-            sorted_data = analyst.get_sorted_data(data)
 
-            b.save(sorted_data)
+            b.save(data)
+
+        sorted_data = analyst.get_sorted_data(data)
 
         n_trials = sorted_data["n_trials"]
 
