@@ -65,8 +65,15 @@ class ParametersContainer(QWidget):
             MinMaxParameter(
                 text="Inter-trial time (ms)", initial_value_min=param["inter_trial_time"][0],
                 initial_value_max=param["inter_trial_time"][1],
-                value_range_min=[1, 100000],
-                value_range_max=[1, 100000])
+                value_range_min=[0, 100000],
+                value_range_max=[0, 100000])
+
+        self.parameters["inter_block_time"] = \
+            MinMaxParameter(
+                text="Inter-block time (ms)", initial_value_min=param["inter_block_time"][0],
+                initial_value_max=param["inter_block_time"][1],
+                value_range_min=[0, 100000],
+                value_range_max=[0, 100000])
 
         self.parameters["punishment_time"] = \
             Parameter(text="Punishment time (ms)", initial_value=param["punishment_time"],

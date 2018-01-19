@@ -3,7 +3,6 @@ from threading import Thread, Event
 from datetime import datetime as dt
 import socket
 import errno
-import numpy as np
 
 from utils.utils import log
 
@@ -99,6 +98,49 @@ class ValveManager(Thread):
 
         self.shutdown.set()
         self.valve_queue.put(None)
+
+
+# --------------------------------------------------------------------------------------------------------------- #
+# ------------------------------------- TTL MANAGER ------------------------------------------------------------ #
+# --------------------------------------------------------------------------------------------------------------- #
+
+
+class TtlManager(Thread):
+
+    name = "TtlManager"
+
+    def __init__(self, client):
+
+        super().__init__()
+
+        self.client = client
+
+        self.ttl_queue = Queue()
+        self.shutdown = Event()
+
+    def run(self):
+
+        log("Running.", self.name)
+
+        while not self.shutdown.is_set():
+
+            self.ttl_queue.get()
+            if not self.shutdown.is_set():
+
+                self.client.send("s")
+
+        self.client.close()
+
+        log("DEAD.", self.name)
+
+    def end(self):
+
+        self.shutdown.set()
+        self.ttl_queue.put(None)
+
+    def send_signal(self):
+
+        self.ttl_queue.put(True)
 
 
 # --------------------------------------------------------------------------------------------------------------- #

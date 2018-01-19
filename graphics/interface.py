@@ -248,6 +248,11 @@ class Interface(QWidget):
             dice_output = message[1]
             self.game_window.set_dice_output(dice_output)
 
+        elif message[0] == "play_sound":
+
+            sound = message[1]
+            self.game_window.play_sound(sound)
+
         else:
             raise Exception("Interface: Message not understood: '{}'.".format(message))
 

@@ -7,7 +7,8 @@ from os import path
 import numpy as np
 
 from data_management.database import Database
-from task.ressources import GripManager, ValveManager, GripTracker, Timer, Client, GaugeAnimation
+from task.ressources import GripManager, ValveManager, TtlManager, \
+    GripTracker, Timer, Client, GaugeAnimation
 from task.stimuli_finder import StimuliFinder
 from utils.utils import log
 
@@ -43,6 +44,7 @@ class Manager(Thread):
             client=self.client)
 
         self.valve_manager = ValveManager(client=self.client)
+        self.ttl_manager = TtlManager(client=self.client)
 
         # -------- PARAMETERS --------- #
 
@@ -74,11 +76,24 @@ class Manager(Thread):
         self.timer = Timer(message_queue=self.queues["manager"])
         self.gauge_animation = GaugeAnimation(message_queue=self.queues["manager"])
 
-        self.time_to_decide = -1
-        self.time_to_come_back_to_the_grip = -1
-        self.inter_trial_time = -1
-        self.fixation_time = -1
+        self.time_reference = -1
 
+        self.time_reaction = -1
+        self.time_movement = -1
+        self.time_back_movement = -1
+        self.time_inter_trial = -1
+        self.time_inter_block = -1
+        self.time_fixation = -1
+        
+        self.time_stamp_grip_onset = -1 
+        self.time_stamp_release_grip = -1
+        self.time_stamp_cue_onset = -1
+        self.time_stamp_cue_contact = -1
+        self.time_stamp_result_period_onset = -1
+        self.time_stamp_reward_period_onset = -1
+        self.time_stamp_inter_trial_interval_onset = -1
+        self.time_stamp_inter_block_interval_onset = -1
+        
         # ------- TRIAL COUNTERS ------ #
 
         self.trial_counter = [0, 0]
@@ -126,6 +141,7 @@ class Manager(Thread):
         self.grip_tracker.end()
         self.grip_manager.end()
         self.valve_manager.end()
+        self.ttl_manager.end()
 
         self.ask_interface(("close_all_windows",))
 
@@ -142,6 +158,11 @@ class Manager(Thread):
             if command == "choice":
 
                 if self.state == "show_stimuli":
+                    self.did_not_release_grip_to_decide()
+
+                elif self.state == "release_grip_to_decide":
+
+                    self.ask_interface(("play_sound", "choice"))
 
                     side = message[2]
 
@@ -196,6 +217,23 @@ class Manager(Thread):
                     log("Command '{}' ignored (not in the appropriate state)."
                         .format(command), self.name)
 
+            elif command == "release_grip_to_decide":
+
+                if self.state == "show_stimuli":
+                    self.release_grip_to_decide()
+
+                else:
+                    log("Command '{}' ignored (not in the appropriate state)."
+                        .format(command), self.name)
+
+            elif command == "come_back_to_grip_instead_of_deciding":
+                if self.state == "release_grip_to_decide":
+                    self.come_back_to_grip_instead_of_deciding()
+
+                else:
+                    log("Command '{}' ignored (not in the appropriate state)."
+                        .format(command), self.name)
+
             elif command == "show_results":
 
                 if self.state == "decide":
@@ -244,7 +282,7 @@ class Manager(Thread):
 
             elif command == "did_not_take_decision":
 
-                if self.state == "show_stimuli":
+                if self.state in ["show_stimuli", "release_grip_to_decide"]:
                     self.did_not_take_decision()
 
                 else:
@@ -269,6 +307,24 @@ class Manager(Thread):
                     log("Command '{}' ignored (not in the appropriate state)."
                         .format(command), self.name)
 
+            elif command == "inter_block":
+
+                if self.state == "reward":
+                    self.inter_block()
+
+                else:
+                    log("Command '{}' ignored (not in the appropriate state)."
+                        .format(command), self.name)
+
+            elif command == "end_block":
+
+                if self.state == "inter_block":
+                    self.end_block()
+
+                else:
+                    log("Command '{}' ignored (not in the appropriate state)."
+                        .format(command), self.name)
+
             else:
                 log("ERROR: Message received from Timer not understood: '{}'.".format(message), self.name)
                 raise Exception("{}: Received message '{}' from Timer but did'nt expected anything like that."
@@ -276,7 +332,7 @@ class Manager(Thread):
 
         elif message[0] == "gauge_animation":
 
-            if self.state in ["show_results", "end_block"]:
+            if self.state in ["show_results", "reward"]:
 
                 command, kwargs, = message[1:]
 
@@ -285,7 +341,8 @@ class Manager(Thread):
 
                 else:
                     log("ERROR: Message received from GaugeAnimation not understood: '{}'.".format(message), self.name)
-                    raise Exception("{}: Received message '{}' from GaugeAnimation but did'nt expected anything like that."
+                    raise Exception("{}: Received message '{}' from GaugeAnimation "
+                                    "but did'nt expected anything like that."
                                     .format(self.name, message))
 
             else:
@@ -370,6 +427,7 @@ class Manager(Thread):
             if not self.shutdown.is_set():
                 self.valve_manager.start()
                 self.grip_manager.start()
+                self.ttl_manager.start()
 
     def play_game(self):
 
@@ -411,6 +469,8 @@ class Manager(Thread):
 
         # Reinitialize
         self.n_trial_inside_block = 0
+        self.time_stamp_inter_block_interval_onset = -1
+        self.time_inter_block = -1
         self.gauge_level = self.parameters["initial_stock"]
 
         # Update display of game window
@@ -419,22 +479,26 @@ class Manager(Thread):
         # Launch new trial
         self.begin_new_trial()
 
-    def end_block(self):
+    def reward(self):
 
-        log("NEW STATE -> End of a block.", self.name)
+        log("NEW STATE -> Reward.", self.name)
 
         # Update state
-        self.state = "end_block"
+        self.state = "reward"
+
+        # After time for rewarding, launch new block
+        reward_time = self.parameters["reward_time"] / 1000
+        self.timer.launch(time=reward_time, msg="inter_block")
+
+        # Launch vending animation
+        self.venting_gauge_animation()
+
+    def end_block(self):
 
         # Upgrade counter
         self.n_block += 1
 
-        # After time for rewarding, launch new block
-        reward_time = self.parameters["reward_time"] / 1000
-        self.timer.launch(time=reward_time, msg="begin_new_block")
-
-        # Launch vending animation
-        self.venting_gauge_animation()
+        self.begin_new_block()
 
 # ------------------------------------ START AND END TRIAL ---------------------------------------------------------- #
 
@@ -447,10 +511,19 @@ class Manager(Thread):
 
         # Reinitialize
         self.error = None
-        self.time_to_decide = -1
-        self.time_to_come_back_to_the_grip = -1
-        self.inter_trial_time = -1
-        self.fixation_time = -1
+        self.time_reaction = -1
+        self.time_movement = -1
+        self.time_back_movement = -1
+        self.time_inter_trial = -1
+        self.time_fixation = -1
+
+        self.time_stamp_grip_onset = -1
+        self.time_stamp_release_grip = -1
+        self.time_stamp_cue_onset = -1
+        self.time_stamp_cue_contact = -1
+        self.time_stamp_result_period_onset = -1
+        self.time_stamp_reward_period_onset = -1
+        self.time_stamp_inter_trial_interval_onset = -1
 
         # Update display on game window
         self.ask_interface(("show_gauge", ))
@@ -488,7 +561,7 @@ class Manager(Thread):
             if self.n_trial_inside_block % self.parameters["trials_per_block"]:
                 self.begin_new_trial()
             else:
-                self.end_block()
+                self.reward()
 
         # Otherwise, begin a new block
         else:
@@ -521,15 +594,27 @@ class Manager(Thread):
         # Update state
         self.state = "grasp_before_stimuli_display"
 
+        print("*********************** TTL GRASP *******************************")
+
+        if self.n_block == 0 and self.n_trial_inside_block == 0:
+            self.time_reference = time()
+            self.time_stamp_grip_onset = 0
+
+        else:
+            self.time_stamp_grip_onset = time() - self.time_reference
+
+        # Inform recording system
+        self.ttl_manager.send_signal()
+
         # # Observe if the user holds the grip for a certain time, otherwise do what is appropriate
         self.grip_tracker.launch(msg="release_before_end_of_fixation_time")
 
         # # Launch a new timer: if user holds the grip, show the stimuli
-        self.fixation_time = np.random.randint(
+        self.time_fixation = np.random.randint(
             self.parameters["fixation_time"][0], self.parameters["fixation_time"][1]
         ) / 1000
 
-        self.timer.launch(time=self.fixation_time, msg="show_stimuli")
+        self.timer.launch(time=self.time_fixation, msg="show_stimuli")
 
     def show_stimuli(self):
 
@@ -541,6 +626,13 @@ class Manager(Thread):
         # Stop grip tracker whose purpose was to rise an error if user has release the grip
         self.grip_tracker.cancel()
 
+        print("*********************** TTL STIMULI *******************************")
+
+        self.time_stamp_cue_onset = time() - self.time_reference
+
+        # Inform recording system
+        self.ttl_manager.send_signal()
+
         # Update display on game window
         self.ask_interface(("show_stimuli", ))
 
@@ -548,8 +640,26 @@ class Manager(Thread):
         max_decision_time = self.parameters["max_decision_time"] / 1000
         self.timer.launch(msg="did_not_take_decision", time=max_decision_time)
 
-        # For future measure of time for choosing
-        self.time_to_decide = time()
+        # # Observe if the user holds the grip for a certain time, otherwise do what is appropriate
+        self.grip_tracker.launch(msg="release_grip_to_decide")
+
+    def release_grip_to_decide(self):
+
+        # Update state
+        self.state = "release_grip_to_decide"
+
+        log("NEW STATE -> Release grip to decide.", self.name)
+
+        print("*********************** TTL RELEASE GRIP *******************************")
+
+        self.time_stamp_release_grip = time() - self.time_reference
+
+        # Inform recording system
+        self.ttl_manager.send_signal()
+
+        self.grip_tracker.launch(msg="come_back_to_grip_instead_of_deciding")
+
+        self.time_reaction = self.time_stamp_release_grip - self.time_stamp_cue_onset
 
     def decide(self, choice):
 
@@ -558,11 +668,18 @@ class Manager(Thread):
         # Update state
         self.state = "decide"
 
-        # Stop previous timer whose purpose was to raise an error if user did'nt took a decision
+        # Stop previous timer for which the purpose was to raise an error if user did'nt took a decision
         self.timer.cancel()
 
-        # Measure time to decide
-        self.time_to_decide = int((time() - self.time_to_decide) * 1000)
+        # Cancel grip tracker
+        self.grip_tracker.cancel()
+
+        print("*********************** TTL DECIDE *******************************")
+
+        self.time_stamp_cue_contact = time() - self.time_reference
+
+        # Inform recording system
+        self.ttl_manager.send_signal()
 
         # Save choice
         self.choice = choice
@@ -577,8 +694,8 @@ class Manager(Thread):
         # Launch grip detector: If grip state change, results will be displayed
         self.grip_tracker.launch(msg="show_results")
 
-        # For future measure of time for coming back to the grip
-        self.time_to_come_back_to_the_grip = time()
+        # Measure movement time
+        self.time_movement = self.time_stamp_cue_contact - self.time_stamp_release_grip
 
     def show_results(self):
 
@@ -590,11 +707,15 @@ class Manager(Thread):
         # Stop previous timer whose purpose was to raise an error if user didn't come back
         self.timer.cancel()
 
-        # Measure time for coming back to the grip
-        self.time_to_come_back_to_the_grip = int((time() - self.time_to_come_back_to_the_grip) * 1000)
-
         # Prepare results
         self.set_results()
+
+        print("*********************** TTL RESULTS *******************************")
+
+        self.time_stamp_result_period_onset = time() - self.time_reference
+
+        # Inform recording system
+        self.ttl_manager.send_signal()
 
         # Update display on game window
         self.ask_interface(("show_results", ))
@@ -606,6 +727,9 @@ class Manager(Thread):
         # Start animation for filling up the gauge
         self.filling_gauge_animation()
 
+        # Measure time for coming back to the grip
+        self.time_back_movement = self.time_stamp_result_period_onset - self.time_stamp_cue_contact
+
     def inter_trial(self):
 
         log("NEW STATE -> Inter-trial.", self.name)
@@ -616,59 +740,56 @@ class Manager(Thread):
         # Update display on game window
         self.ask_interface(("show_gauge", ))
 
-        # Launch new timer: after time for inter-trial, go to end of the trial
-        self.inter_trial_time = np.random.randint(
-            self.parameters["inter_trial_time"][0],
-            self.parameters["inter_trial_time"][1])\
-            / 1000
+        if self.parameters["inter_trial_time"][1] > 0:
 
-        self.timer.launch(msg="end_trial", time=self.inter_trial_time)
+            # Inform recording system
+            print("*********************** TTL INTERTRIAL *******************************")
 
-# ----------------------------------------- ERRORS --------------------------------------------------------------- #
+            self.time_stamp_inter_trial_interval_onset = time() - self.time_reference
 
-    def punish(self):
+            self.ttl_manager.send_signal()
 
-        log("NEW STATE -> Punishment.", self.name)
+            # Launch new timer: after time for inter-trial, go to end of the trial
+            self.time_inter_trial = np.random.randint(
+                self.parameters["inter_trial_time"][0],
+                self.parameters["inter_trial_time"][1])\
+                / 1000
+
+            self.timer.launch(msg="end_trial", time=self.time_inter_trial)
+
+        else:
+            self.time_inter_trial = 0
+            self.end_trial()
+
+    def inter_block(self):
+
+        log("NEW STATE -> Inter-block.", self.name)
 
         # Update state
-        self.state = "punishment"
+        self.state = "inter_block"
 
         # Update display on game window
-        self.ask_interface(("show_black_screen", ))
+        self.ask_interface(("show_gauge", ))
 
-        # After punishment time, go to end of trial
-        punishment_time = self.parameters["punishment_time"] / 1000
-        self.timer.launch(msg="end_trial", time=punishment_time, debug="Coming from punishment")
+        if self.parameters["inter_block_time"][1] > 0:
 
-    def release_before_end_of_fixation_time(self):
+            print("*********************** TTL INTERBLOCK*******************************")
 
-        log("Release grip before the end of the fixation time.", self.name)
+            self.time_stamp_inter_block_interval_onset = time() - self.time_reference
 
-        # Cancel timer leading to 'show stimuli'.
-        self.timer.cancel(debug="Don't show stimuli motherfucker!")
+            # Inform recording system
+            self.ttl_manager.send_signal()
 
-        self.error = "release before end of fixation time"
-        self.punish()
+            # Launch new timer: after time for inter-trial, go to end of the trial
+            self.time_inter_block = np.random.randint(
+                self.parameters["inter_block_time"][0],
+                self.parameters["inter_block_time"][1])\
+                / 1000
 
-    def did_not_take_decision(self):
-
-        log("Did not take a decision.", self.name)
-
-        self.time_to_decide = -1
-
-        self.error = "too long to take a decision"
-        self.punish()
-
-    def did_not_came_back_to_the_grip(self):
-
-        log("Did not came back to the grip.", self.name)
-
-        self.grip_tracker.cancel()
-
-        self.time_to_come_back_to_the_grip = -1
-
-        self.error = "did not came back to the grip"
-        self.punish()
+            self.timer.launch(msg="end_block", time=self.time_inter_block)
+        else:
+            self.time_inter_block = 0
+            self.end_block()
 
 # ----------------------------------------- GAUGE ANIMATION ------------------------------------------------------ #
 
@@ -699,6 +820,13 @@ class Manager(Thread):
         self.gauge_level += reward
 
     def venting_gauge_animation(self):
+
+        print("*********************** TTL VENTING *******************************")
+
+        self.time_stamp_reward_period_onset = time() - self.time_reference
+
+        # Inform recording system
+        self.ttl_manager.send_signal()
 
         self.ask_interface(("set_gauge_color", "blue"))
 
@@ -745,6 +873,65 @@ class Manager(Thread):
         self.dice_output = int(r > p)
         self.ask_interface(("set_dice_output", self.dice_output))
 
+    # ----------------------------------------- ERRORS --------------------------------------------------------------- #
+
+    def punish(self):
+        log("NEW STATE -> Punishment.", self.name)
+
+        # Update state
+        self.state = "punishment"
+
+        # Update display on game window
+        self.ask_interface(("show_black_screen",))
+
+        # After punishment time, go to end of trial
+        punishment_time = self.parameters["punishment_time"] / 1000
+        self.timer.launch(msg="end_trial", time=punishment_time, debug="Coming from punishment")
+
+    def release_before_end_of_fixation_time(self):
+        log("Release grip before the end of the fixation time.", self.name)
+
+        # Cancel timer leading to 'show stimuli'.
+        self.timer.cancel(debug="Don't show stimuli")
+
+        self.error = "release before end of fixation time"
+        self.punish()
+
+    def did_not_release_grip_to_decide(self):
+        log("Did not release grip to decide.", self.name)
+
+        self.grip_tracker.cancel()
+        self.timer.cancel()
+
+        self.error = "did not release grip to decide"
+        self.punish()
+
+    def come_back_to_grip_instead_of_deciding(self):
+        log("Come back to grip instead of deciding.", self.name)
+
+        self.timer.cancel()
+
+        self.error = "come back to grip instead of deciding"
+        self.punish()
+
+    def did_not_take_decision(self):
+        log("Did not take a decision.", self.name)
+
+        self.grip_tracker.cancel()
+
+        self.error = "too long to take a decision"
+        self.punish()
+
+    def did_not_came_back_to_the_grip(self):
+        log("Did not came back to the grip.", self.name)
+
+        self.grip_tracker.cancel()
+
+        self.time_back_movement = -1
+
+        self.error = "did not came back to the grip"
+        self.punish()
+
 
 # ------------------------------------- SAVE -------------------------------------------------------------------- #
 
@@ -758,10 +945,20 @@ class Manager(Thread):
                 "gauge_level": self.gauge_level,
                 "n_trial_inside_block": self.n_trial_inside_block,
                 "n_block": self.n_block,
-                "time_to_decide": self.time_to_decide,
-                "time_to_come_back_to_the_grip": self.time_to_come_back_to_the_grip,
-                "inter_trial_time": int(self.inter_trial_time * 1000),
-                "fixation_time": int(self.fixation_time * 1000)
+                "time_reaction": int(self.time_reaction * 1000),
+                "time_movement": int(self.time_movement * 1000),
+                "time_back_movement": int(self.time_back_movement * 1000),
+                "time_inter_trial": int(self.time_inter_trial * 1000),
+                "time_inter_block": int(self.time_inter_block * 1000),
+                "time_fixation": int(self.time_fixation * 1000),
+                "time_stamp_grip_onset": int(self.time_stamp_grip_onset * 1000),
+                "time_stamp_release_grip": int(self.time_stamp_release_grip * 1000),
+                "time_stamp_cue_onset": int(self.time_stamp_cue_onset * 1000),
+                "time_stamp_cue_contact": int(self.time_stamp_cue_contact * 1000),
+                "time_stamp_result_period_onset": int(self.time_stamp_result_period_onset * 1000),
+                "time_stamp_reward_period_onset": int(self.time_stamp_reward_period_onset * 1000),
+                "time_stamp_inter_block_interval_onset": int(self.time_stamp_inter_block_interval_onset * 1000),
+                "time_stamp_inter_trial_interval_onset": int(self.time_stamp_inter_trial_interval_onset * 1000),
             }
         to_save.update(self.stimuli_parameters)
         self.to_save.append(to_save)

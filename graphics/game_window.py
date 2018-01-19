@@ -287,13 +287,13 @@ class GameWindow(QMainWindow):
             if self.frames["left"].ellipse.contains(event.pos()):
                 log("CLICK LEFT.", self.name)
                 self.queues["manager"].put(("game", "choice", "left"))
-                self.play_sound("choice")
+                # self.play_sound("choice")
                 self.detect_choices.clear()
 
             if self.frames["right"].ellipse.contains(QPoint(event.x() - self.width()*(4/7), event.y())):
                 log("CLICK RIGHT.", self.name)
                 self.queues["manager"].put(("game", "choice", "right"))
-                self.play_sound("choice")
+                # self.play_sound("choice")
                 self.detect_choices.clear()
 
             else:
