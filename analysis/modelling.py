@@ -1,14 +1,14 @@
 import itertools as it
-from multiprocessing import Pool, cpu_count
-from os import path, mkdir
+from os import makedirs, path
 
 import numpy as np
 import json
 from scipy.stats import binom
 
-from analysis.analysis_parameters import folders, starting_point, end_point
 from analysis.model import ProspectTheoryModel
+
 from data_management.data_manager import import_data
+
 from utils.utils import log
 
 
@@ -24,26 +24,23 @@ class ModelRunner(object):
     p_list = None
 
     @classmethod
-    def prepare(cls, alternatives):
+    def prepare(cls, alternatives, range_parameters, n_values_per_parameter):
 
         cls.alternatives = alternatives
 
-        cls.prepare_parameters_list()
+        cls.prepare_parameters_list(
+            range_parameters=range_parameters,
+            n_values_per_parameter=n_values_per_parameter
+        )
 
     @classmethod
-    def prepare_parameters_list(cls):
-
-        n_values_per_parameter = 10
-
-        possible_parameter_values = {
-            "positive_risk_aversion": np.linspace(-0.8, 0.8, n_values_per_parameter),
-            "negative_risk_aversion": np.linspace(-0.8, 0.8, n_values_per_parameter),
-            "probability_distortion": np.linspace(0.5, 1., n_values_per_parameter),
-            "loss_aversion": np.linspace(-0.5, 0.5, n_values_per_parameter),
-            "temp": np.linspace(0.1, 0.3, n_values_per_parameter)
-        }
-
-        assert sorted(possible_parameter_values.keys()) == ProspectTheoryModel.labels
+    def prepare_parameters_list(cls, range_parameters, n_values_per_parameter):
+        
+        assert sorted(range_parameters.keys()) == ProspectTheoryModel.labels
+        
+        possible_parameter_values = \
+            {k: np.linspace(v[0], v[1], n_values_per_parameter) 
+             for k, v in range_parameters.items()}
 
         cls.n_set_parameters = n_values_per_parameter ** len(possible_parameter_values)
         cls.parameters_list = [possible_parameter_values[i] for i in sorted(possible_parameter_values.keys())]
@@ -61,17 +58,26 @@ class ModelRunner(object):
         return ps
 
     @classmethod
-    def run(cls, alternatives):
+    def run(cls, alternatives, range_parameters, n_values_per_parameter):
 
-        cls.prepare(alternatives)
+        cls.prepare(
+            alternatives=alternatives, 
+            range_parameters=range_parameters, 
+            n_values_per_parameter=n_values_per_parameter)
 
         log("Launch run of model...", cls.name)
 
         log("Number of different set of parameters: {}.".format(cls.n_set_parameters), cls.name)
 
-        pool = Pool(processes=cpu_count())
+        # pool = Pool(processes=cpu_count())
+        # cls.p_list = np.array(pool.map(cls.compute, it.product(*cls.parameters_list)))
 
-        cls.p_list = np.array(pool.map(cls.compute, it.product(*cls.parameters_list)))
+        cls.p_list = []
+
+        for i, parameters in enumerate(it.product(*cls.parameters_list)):
+            cls.p_list.append(cls.compute(parameters))
+
+        cls.p_list = np.array(cls.p_list)
 
         log("Done!", cls.name)
 
@@ -99,42 +105,29 @@ class LlsComputer(object):
             "len k: {}; len n: {}; len p: {}.".format(
                 len(cls.k), len(cls.n), len(cls.p[0, :]))
 
-        pool = Pool(processes=cpu_count())
-
         n_sets = len(cls.p[:, 0])
+        len_n = len(cls.n)
 
-        lls_list = pool.map(
-            cls.compute,
-            range(n_sets)
-        )
+        lls_list = np.zeros(n_sets)
 
-        lls_list = np.asarray(lls_list)
+        for i in range(n_sets):
+            log_likelihood_sum = 0
+
+            for j in range(len_n):
+                k, n, p = cls.k[j], cls.n[j], cls.p[i, j]
+
+                log_likelihood = binom.logpmf(k=k, n=n, p=p)
+                if log_likelihood == -np.inf:
+                    log_likelihood_sum = - np.inf
+                    break
+
+                log_likelihood_sum += log_likelihood
+
+            lls_list[i] = log_likelihood_sum
 
         log("Done!", cls.name)
 
         return lls_list
-
-    @classmethod
-    def compute(cls, parameters_set):
-
-        log_likelihood_sum = 0
-
-        len_n = len(cls.n)
-
-        for i in range(len_n):
-
-            k, n, p = cls.k[i], cls.n[i], cls.p[parameters_set, i]
-
-            likelihood = binom.pmf(k=k, n=n, p=p)
-
-            if likelihood == 0:
-                log_likelihood_sum = - np.inf
-                break
-
-            log_likelihood = np.log(likelihood)
-            log_likelihood_sum += log_likelihood
-
-        return log_likelihood_sum
 
 
 class AlternativesNKGetter(object):
@@ -184,7 +177,10 @@ class AlternativesNKGetter(object):
         return alternatives, n, k
 
 
-def get_model_data(npy_files, alternatives, force=False):
+def get_model_data(npy_files, alternatives, 
+                   range_parameters,
+                   n_values_per_parameter,
+                   force=False):
 
     if all([path.exists(file) for file in npy_files.values()]) and not force:
 
@@ -196,7 +192,9 @@ def get_model_data(npy_files, alternatives, force=False):
     else:
 
         m = ModelRunner()
-        m.run(alternatives)
+        m.run(alternatives=alternatives,
+              range_parameters=range_parameters,
+              n_values_per_parameter=n_values_per_parameter)
 
         try:
             np.save(npy_files["parameters"], m.parameters_list)
@@ -272,13 +270,13 @@ def treat_results(monkey, lls_list, parameters, json_file):
         json.dump(result, file)
 
 
-def main():
+def main(force=False):
 
-    force = True
+    from analysis.analysis_parameters import \
+        folders, range_parameters, n_values_per_parameter, starting_points, end_point
 
     for folder in folders.values():
-        if not path.exists(folder):
-            mkdir(folder)
+        makedirs(folder, exist_ok=True)
 
     files = dict()
     files["model"] = {
@@ -295,12 +293,14 @@ def main():
                 "k": "{}/{}_{}.npy".format(folders["npy_files"], monkey, "k"),
             },
             "LLS": "{}/{}_{}.npy".format(folders["npy_files"], monkey, "lls"),
-            "result": "{}/{}_{}.json".format(folders["results"], monkey, "result")
+            "fit": "{}/{}_{}.json".format(folders["fit"], monkey, "fit")
         }
 
     monkeys = ["Gladys", "Havane"]
 
     for monkey in monkeys:
+
+        starting_point = starting_points[monkey]
 
         print()
         log("Processing for {}...".format(monkey), name="__main__")
@@ -313,6 +313,8 @@ def main():
         log("Getting model data for {}...".format(monkey), name="__main__")
         parameters, p = \
             get_model_data(
+                range_parameters=range_parameters,
+                n_values_per_parameter=n_values_per_parameter,           
                 npy_files=files["model"], alternatives=alternatives, force=force)
 
         log("Getting statistical data for {}...".format(monkey), name="__main__")
@@ -324,7 +326,7 @@ def main():
 
         treat_results(
             monkey=monkey, lls_list=lls_list, parameters=parameters,
-            json_file=files[monkey]["result"])
+            json_file=files[monkey]["fit"])
 
         log("Done!", name="__main__")
 

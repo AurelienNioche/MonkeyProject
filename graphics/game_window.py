@@ -384,10 +384,10 @@ class Viewer(object):
     textures_folder = "../textures"
 
     parameters = {
-        "left_p": 0.25,
+        "left_p": 0.75,
         "left_x0": 3,
         "left_x1": 0,
-        "left_beginning_angle": 5,
+        "left_beginning_angle": 180,
         "right_p": 0.5,
         "right_x0": 1,
         "right_x1": 0,
@@ -452,10 +452,10 @@ def main():
     viewer = Viewer()
 
     # #  ----- Uncomment a line or another for viewing a particular state of the game ---------- #
-    # viewer.show_choice()
+    viewer.show_choice()
     # viewer.show_choice_made()
     # viewer.show_results()
-    viewer.show_venting_gauge()
+    # viewer.show_venting_gauge()
     # # ----------------------------------------------------------------------- #
 
     sys.exit(app.exec_())

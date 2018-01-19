@@ -3,22 +3,28 @@ import json
 from os import path, mkdir
 
 from data_management.data_manager import import_data
-from analysis.check_progress import ProgressAnalyst
-from analysis.analysis_parameters import starting_point, end_point
+from analysis.progress_analyst import ProgressAnalyst
+from analysis.analysis_parameters import starting_points, end_point
 
 
 def check_progress():
+
+    """
+    Just produce a json file with the success rates per monkey.
+    """
 
     for monkey in ["Havane", "Gladys"]:
 
         print("Analysis for {}".format(monkey))
         print()
 
+        starting_point = starting_points[monkey]
+
         data = import_data(monkey=monkey, starting_point=starting_point, end_point=end_point)
 
         progress = dict()
 
-        pa = ProgressAnalyst(p=data["p"], x0=data["x0"], x1=data["x1"], choice=data["choice"])
+        pa = ProgressAnalyst(p=data["p"], x0=data["x0"], choice=data["choice"])
 
         for key in ProgressAnalyst.control_conditions:
             progress[key] = pa.analyse(key)

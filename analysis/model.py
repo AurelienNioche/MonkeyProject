@@ -31,15 +31,16 @@ class ProspectTheoryModel(object):
             if self.parameters["loss_aversion"] > 0:
                 v = (1 - self.parameters["loss_aversion"]) * v
 
+            assert 0. <= v <= 1.
+
         else:
             v = - (abs(x)/self.absolute_reward_max) ** (1 + self.parameters["negative_risk_aversion"])
 
             if self.parameters["loss_aversion"] < 0:
                 v = (1 + self.parameters["loss_aversion"]) * v
 
-        assert 0. <= abs(v) <= 1., print("v", v, "; x", x,
-                                         "; neg", self.parameters["negative_risk_aversion"],
-                                         "; pos", self.parameters["positive_risk_aversion"])
+            assert 0. >= v >= -1.
+
         return v
 
     def U(self, L):
@@ -52,6 +53,8 @@ class ProspectTheoryModel(object):
 
     def w(self, p):
         """Probability distortion"""
+
+        assert p > 0
 
         return np.exp(-(-np.log(p))**self.parameters["probability_distortion"])
 

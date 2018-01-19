@@ -28,49 +28,43 @@ class DataManager(object):
 
             date = [int(i) for i in str_date.split("-")]
 
-            if end_point[0] > date[0] > starting_point[0]:
-
+            # If year of date is between the years of starting point and end point (but not equal to them)
+            if starting_point[0] < date[0] < end_point[0]:
                 relevant_dates.append(str_date)
 
-            elif date[0] == starting_point[0] and date[0] == end_point[0]:
+            elif starting_point[0] > date[0] or date[0] > end_point[0]:
+                continue
 
-                if end_point[1] > date[1] > starting_point[1]:
+            # If year of date is equal to the years of starting point and end point (which are equal)
+            elif date[0] == starting_point[0] == end_point[0]:
+
+                if starting_point[1] > date[1] or date[1] > end_point[1]:
+                    continue
+
+                elif (end_point[1] > date[1] > starting_point[1]) \
+                        or (date[1] == starting_point[1] == end_point[1]
+                            and starting_point[2] <= date[2] <= end_point[2]) \
+                        or (date[1] == starting_point[1]
+                            and date[2] >= starting_point[2]) \
+                        or (date[1] == end_point[1]
+                            and date[2] <= end_point[2]):
                     relevant_dates.append(str_date)
 
-                elif date[1] == starting_point[1] and date[1] == end_point[1]:
-
-                    if end_point[2] >= date[2] >= starting_point[2]:
-                        relevant_dates.append(str_date)
-
-                elif date[1] == starting_point[1]:
-
-                    if date[2] >= starting_point[2]:
-                        relevant_dates.append(str_date)
-
-                elif date[1] == end_point[1]:
-
-                    if end_point[2] >= date[2]:
-                        relevant_dates.append(str_date)
-
+            # If year of date is equal to the year of starting point (and is inferior to the year of end point)
             elif date[0] == starting_point[0]:
 
-                if end_point[1] > date[1] > starting_point[1]:
+                if (date[1] > starting_point[1])\
+                        or (date[1] == starting_point[1]
+                            and date[2] >= starting_point[2]):
                     relevant_dates.append(str_date)
 
-                elif date[1] == starting_point[1] or date[1] == end_point[1]:
-
-                    if end_point[2] >= date[2] >= starting_point[2]:
-                        relevant_dates.append(str_date)
-
+            # If year of date is equal to the year of starting point (and is superior to the year of starting point)
             elif date[0] == end_point[0]:
 
-                if end_point[1] > date[1]:
+                if (date[1] < end_point[1]) \
+                        or (date[1] == end_point[1]
+                            and date[2] <= end_point[2]):
                     relevant_dates.append(str_date)
-
-                elif date[1] == end_point[1]:
-
-                    if end_point[2] >= date[2]:
-                        relevant_dates.append(str_date)
 
         return relevant_dates
 
@@ -93,8 +87,8 @@ class DataManager(object):
         x1 = {"left": [], "right": []}
         error = []
         choice = []
-
         session = []
+        date_list = []
 
         for idx, date in enumerate(sorted(dates)):
 
@@ -109,10 +103,10 @@ class DataManager(object):
             choice_session = self.db.read_column(table_name=session_table, column_name="choice")
 
             error += error_session
-
             choice += choice_session
 
             session += [idx, ] * len(error_session)
+            date_list += [date, ] * len(error_session)
 
             for side in ["left", "right"]:
 
@@ -123,23 +117,24 @@ class DataManager(object):
                 x1[side] += \
                     [int(i) for i in self.db.read_column(table_name=session_table, column_name='{}_x1'.format(side))]
 
-        return error, p, x0, x1, choice, session
+        return error, p, x0, x1, choice, session, date_list
 
-    def filter_valid_trials(self, error, p, x0, x1, choice, session):
+    def filter_valid_trials(self, error, p, x0, x1, choice, session, date):
 
         new_p = {"left": [], "right": []}
         new_x0 = {"left": [], "right": []}
         new_x1 = {"left": [], "right": []}
         new_choice = []
         new_session = []
+        new_date = []
 
         valid_trials = np.where(np.asarray(error) == "None")[0]
         log("N valid trials: {}.".format(len(valid_trials)), self.name)
 
         for valid_idx in valid_trials:
 
+            new_date.append(date[valid_idx])
             new_session.append(session[valid_idx])
-
             new_choice.append(choice[valid_idx])
 
             for side in ["left", "right"]:
@@ -155,22 +150,36 @@ class DataManager(object):
 
         new_choice = np.asarray(new_choice)
         new_session = np.asarray(new_session)
-        return new_p, new_x0, new_x1, new_choice, new_session
+        new_date = np.asarray(new_date)
+        return new_p, new_x0, new_x1, new_choice, new_session, new_date
 
     def run(self):
 
         log("Import data for {}.".format(self.monkey), self.name)
 
         dates = self.get_dates()
-        error, p, x0, x1, choice, session = self.get_errors_p_x0_x1_choices_from_db(dates)
-        p, x0, x1, choice, session = self.filter_valid_trials(error, p, x0, x1, choice, session)
+        error, p, x0, x1, choice, session, date = self.get_errors_p_x0_x1_choices_from_db(dates)
+        p, x0, x1, choice, session, date = self.filter_valid_trials(error, p, x0, x1, choice, session, date)
+
+        assert sum(x1["left"]) == 0 and sum(x1["right"]) == 0
 
         log("Done!", self.name)
 
-        return {"p": p, "x0": x0, "x1": x1, "choice": choice, "session": session}
+        return {"p": p, "x0": x0, "x1": x1, "choice": choice, "session": session, "date": date}
 
 
 def import_data(monkey, starting_point="2016-12-01", end_point=today()):
 
     d = DataManager(monkey=monkey, starting_point=starting_point, end_point=end_point)
     return d.run()
+
+
+def main():
+
+    d = DataManager(monkey='Havane', starting_point="2016-08-01", end_point=today())
+    return d.get_dates()
+
+
+if __name__ == "__main__":
+
+    main()
