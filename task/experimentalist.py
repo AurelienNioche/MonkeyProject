@@ -495,6 +495,10 @@ class Manager(Thread):
 
     def end_block(self):
 
+        # Save trial (on RAM)
+        if self.parameters["save"] == 1:
+            self.save_trial()
+
         # Upgrade counter
         self.n_block += 1
 
@@ -538,13 +542,6 @@ class Manager(Thread):
 
         log("NEW STATE -> End of trial.", self.name)
 
-        # Update state
-        self.state = "end_trial"
-
-        # Save trial (on RAM)
-        if self.parameters["save"] == 1:
-            self.save_trial()
-
         # Update trial counters
         self.trial_counter[0] += 1
         if self.error is None:
@@ -558,14 +555,19 @@ class Manager(Thread):
         # If no error, continue
         if self.error is None:
 
+            # If it is not the end of the block
             if self.n_trial_inside_block % self.parameters["trials_per_block"]:
+                # Save trial (on RAM)
+                if self.parameters["save"] == 1:
+                    self.save_trial()
                 self.begin_new_trial()
-            else:
-                self.reward()
 
-        # Otherwise, begin a new block
+            else:
+                self.reward()  # Saving will be at the end of the block
+
+        # If there is an error, begin a new block
         else:
-            self.begin_new_block()
+            self.end_block()
 
 # ------------------------------------ SUB-STEPS OF TASK ---------------------------------------------------------- #
 
@@ -943,7 +945,7 @@ class Manager(Thread):
                 "choice": self.choice,
                 "dice_output": self.dice_output,
                 "gauge_level": self.gauge_level,
-                "n_trial_inside_block": self.n_trial_inside_block,
+                "n_trial_inside_block": self.n_trial_inside_block - 1, # Saving function is called after increasing n
                 "n_block": self.n_block,
                 "time_reaction": int(self.time_reaction * 1000),
                 "time_movement": int(self.time_movement * 1000),
