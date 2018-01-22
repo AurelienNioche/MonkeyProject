@@ -181,7 +181,7 @@ class GripManager(Thread):
 
                 self.grip_value.value = response
 
-            Event().wait(0.01)
+            Event().wait(0.01)  # Precision of 10 ms for the grip
 
         self.client.close()
 

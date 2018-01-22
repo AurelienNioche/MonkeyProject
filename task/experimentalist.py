@@ -1,7 +1,7 @@
 from collections import OrderedDict
 from datetime import date
 from threading import Event, Thread
-from time import time
+import time
 import json
 from os import path
 import numpy as np
@@ -599,11 +599,11 @@ class Manager(Thread):
         print("*********************** TTL GRASP *******************************")
 
         if self.n_block == 0 and self.n_trial_inside_block == 0:
-            self.time_reference = time()
+            self.time_reference = time.perf_counter()
             self.time_stamp_grip_onset = 0
 
         else:
-            self.time_stamp_grip_onset = time() - self.time_reference
+            self.time_stamp_grip_onset = time.perf_counter() - self.time_reference
 
         # Inform recording system
         self.ttl_manager.send_signal()
@@ -630,7 +630,7 @@ class Manager(Thread):
 
         print("*********************** TTL STIMULI *******************************")
 
-        self.time_stamp_cue_onset = time() - self.time_reference
+        self.time_stamp_cue_onset = time.perf_counter() - self.time_reference
 
         # Inform recording system
         self.ttl_manager.send_signal()
@@ -654,7 +654,7 @@ class Manager(Thread):
 
         print("*********************** TTL RELEASE GRIP *******************************")
 
-        self.time_stamp_release_grip = time() - self.time_reference
+        self.time_stamp_release_grip = time.perf_counter() - self.time_reference
 
         # Inform recording system
         self.ttl_manager.send_signal()
@@ -678,7 +678,7 @@ class Manager(Thread):
 
         print("*********************** TTL DECIDE *******************************")
 
-        self.time_stamp_cue_contact = time() - self.time_reference
+        self.time_stamp_cue_contact = time.perf_counter() - self.time_reference
 
         # Inform recording system
         self.ttl_manager.send_signal()
@@ -714,7 +714,7 @@ class Manager(Thread):
 
         print("*********************** TTL RESULTS *******************************")
 
-        self.time_stamp_result_period_onset = time() - self.time_reference
+        self.time_stamp_result_period_onset = time.perf_counter() - self.time_reference
 
         # Inform recording system
         self.ttl_manager.send_signal()
@@ -747,7 +747,7 @@ class Manager(Thread):
             # Inform recording system
             print("*********************** TTL INTERTRIAL *******************************")
 
-            self.time_stamp_inter_trial_interval_onset = time() - self.time_reference
+            self.time_stamp_inter_trial_interval_onset = time.perf_counter() - self.time_reference
 
             self.ttl_manager.send_signal()
 
@@ -777,7 +777,7 @@ class Manager(Thread):
 
             print("*********************** TTL INTERBLOCK*******************************")
 
-            self.time_stamp_inter_block_interval_onset = time() - self.time_reference
+            self.time_stamp_inter_block_interval_onset = time.perf_counter() - self.time_reference
 
             # Inform recording system
             self.ttl_manager.send_signal()
@@ -825,7 +825,7 @@ class Manager(Thread):
 
         print("*********************** TTL VENTING *******************************")
 
-        self.time_stamp_reward_period_onset = time() - self.time_reference
+        self.time_stamp_reward_period_onset = time.perf_counter() - self.time_reference
 
         # Inform recording system
         self.ttl_manager.send_signal()
