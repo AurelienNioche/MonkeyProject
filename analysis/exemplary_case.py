@@ -126,9 +126,10 @@ class Analyst:
         import pandas as pd
         from scipy import stats
 
-        data_frames = dict()
+        condition = []
+        responses = []
 
-        for c in conditions:
+        for c in ("gains", "losses"):
 
             pairs = list(sorted_data[c].keys())
             log("For condition {}, I got {} pair(s) of lotteries ({}).".format(c, len(pairs), pairs), name=self.name)
@@ -146,37 +147,105 @@ class Analyst:
             # For Chi2
             n_hit = np.sum(chosen)
 
-            data_frames[c] = pd.DataFrame(["yes"] * n_hit + ["no"] * (n - n_hit))
-            data_frames[c] = pd.crosstab(index= data_frames[c][0], columns="count")
+            to_add = ["yes"] * n_hit + ["no"] * (n - n_hit)
+            print(c, "yes", to_add.count("yes"))
+            print(c, "no", to_add.count("no"))
 
-        print(data_frames)
+            responses += to_add
+            condition += [c, ] * n
 
-        first_sample = data_frames["gains"]
-        second_sample = data_frames["losses"]
+        voters = pd.DataFrame({"response": responses,
+                               "condition": condition})
 
-        observed = first_sample
-        expected = second_sample/len(second_sample) * len(first_sample)
+        voter_tab = pd.crosstab(voters.response, voters.condition, margins=True)
 
-        chi_squared_stat = (((observed - expected) ** 2) / expected).sum()
+        voter_tab.columns = ["gains", "losses", "row_totals"]
 
-        print()
-        print("Chi squared stat")
+        voter_tab.index = ["no", "yes", "col_totals"]
+
+        observed = voter_tab.ix[0:2, 0:2]  # Get table without totals for later use
+        print(voter_tab)
+
+        expected = np.outer(voter_tab["row_totals"][0:2],
+                            voter_tab.ix["col_totals"][0:2]) / sorted_data["n_trials"]
+
+        expected = pd.DataFrame(expected)
+
+        expected.columns = ["gains", "losses"]
+        expected.index = ["yes", "no"]
+
+        print(expected)
+
+        chi_squared_stat = (((observed - expected) ** 2) / expected).sum().sum()
+
         print(chi_squared_stat)
-        print()
 
         crit = stats.chi2.ppf(q=0.95,  # Find the critical value for 95% confidence*
-                              df=1)  # Df = number of variable categories - 1
+                              df=8)  # *
 
-        print()
         print("Critical value")
         print(crit)
 
         p_value = 1 - stats.chi2.cdf(x=chi_squared_stat,  # Find the p-value
-                                     df=1)
-
-        print()
+                                     df=8)
         print("P value")
         print(p_value)
+
+        # # For Chi2
+        # import pandas as pd
+        # from scipy import stats
+        #
+        # data_frames = dict()
+        #
+        # for c in conditions:
+        #
+        #     pairs = list(sorted_data[c].keys())
+        #     log("For condition {}, I got {} pair(s) of lotteries ({}).".format(c, len(pairs), pairs), name=self.name)
+        #
+        #     assert len(pairs) == 1, 'I expected only one pair of lotteries to meet the conditions.'
+        #
+        #     chosen = sorted_data[c][pairs[0]]
+        #
+        #     mean = np.mean(chosen)
+        #     n = len(chosen)
+        #     results[c] = mean
+        #
+        #     print("Observed freq is {:.2f} ({} trials)".format(mean, n))
+        #
+        #     # For Chi2
+        #     n_hit = np.sum(chosen)
+        #
+        #     data_frames[c] = pd.DataFrame(["yes"] * n_hit + ["no"] * (n - n_hit))
+        #     data_frames[c] = pd.crosstab(index= data_frames[c][0], columns="count")
+        #
+        # print(data_frames)
+        #
+        # first_sample = data_frames["gains"]
+        # second_sample = data_frames["losses"]
+        #
+        # observed = first_sample
+        # expected = second_sample/len(second_sample) * len(first_sample)
+        #
+        # chi_squared_stat = (((observed - expected) ** 2) / expected).sum()
+        #
+        # print()
+        # print("Chi squared stat")
+        # print(chi_squared_stat)
+        # print()
+        #
+        # crit = stats.chi2.ppf(q=0.95,  # Find the critical value for 95% confidence*
+        #                       df=1)  # Df = number of variable categories - 1
+        #
+        # print()
+        # print("Critical value")
+        # print(crit)
+        #
+        # p_value = 1 - stats.chi2.cdf(x=chi_squared_stat,  # Find the p-value
+        #                              df=1)
+        #
+        # print()
+        # print("P value")
+        # print(p_value)
 
         return results
 

@@ -18,6 +18,7 @@ class TtlSignal(Process):
         GPIO.output(self.gpio_out, GPIO.LOW)
 
         self.start()
+        self.queue.put(None)  # Initialize queue for avoiding a delay at first send
 
     def _send(self):
 
