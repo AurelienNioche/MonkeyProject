@@ -7,7 +7,7 @@ from utils.utils import log
 
 from analysis.tools.backup import Backup
 
-from analysis.parameters.parameters import folders, starting_points, end_point
+from analysis.parameters import parameters
 
 
 """
@@ -21,7 +21,7 @@ def get_script_name():
 
 class Analyst:
 
-    name = "Analyst"
+    name = "Analyst 'exemplary case'"
 
     def __init__(self):
 
@@ -125,13 +125,81 @@ class Analyst:
 
         # For plot
         results = {}
+        #
+        # # For Chi2
+        # import pandas as pd
+        # from scipy import stats
+        #
+        # condition = []
+        # responses = []
+        #
+        # for c in conditions:
+        #
+        #     pairs = list(sorted_data[c].keys())
+        #     log("For condition {}, I got {} pair(s) of lotteries ({}).".format(c, len(pairs), pairs), self.name)
+        #
+        #     assert len(pairs) == 1, 'I expected only one pair of lotteries to meet the conditions.'
+        #
+        #     chosen = sorted_data[c][pairs[0]]
+        #
+        #     mean = np.mean(chosen)
+        #     n = len(chosen)
+        #     results[c] = mean
+        #
+        #     log("Observed freq is {:.2f} ({} trials)".format(mean, n), self.name)
+        #
+        #     # For Chi2
+        #     n_hit = np.sum(chosen)
+        #
+        #     to_add = ["yes"] * n_hit + ["no"] * (n - n_hit)
+        #     # print(c, "yes", to_add.count("yes"))
+        #     # print(c, "no", to_add.count("no"))
+        #
+        #     responses += to_add
+        #     condition += [c, ] * n
+        #
+        # log("Performing Chi-Squared...", self.name)
+        #
+        # voters = pd.DataFrame({"response": responses,
+        #                        "condition": condition})
+        #
+        # voter_tab = pd.crosstab(voters.response, voters.condition, margins=True)
+        #
+        # voter_tab.columns = ["gains", "losses", "row_totals"]
+        #
+        # voter_tab.index = ["no", "yes", "col_totals"]
+        #
+        # observed = voter_tab.ix[0:2, 0:2]  # Get table without totals for later use
+        # # print(voter_tab)
+        #
+        # expected = np.outer(voter_tab["row_totals"][0:2],
+        #                     voter_tab.ix["col_totals"][0:2]) / sorted_data["n_trials"]
+        #
+        # expected = pd.DataFrame(expected)
+        #
+        # expected.columns = ["gains", "losses"]
+        # expected.index = ["yes", "no"]
+        #
+        # # print(expected)
+        #
+        # chi_squared_stat = (((observed - expected) ** 2) / expected).sum().sum()
+        #
+        # log("Chi-squared stat: {}".format(chi_squared_stat), self.name)
+        #
+        # crit = stats.chi2.ppf(q=0.95,  # Find the critical value for 95% confidence*
+        #                       df=8)  # *
+        #
+        # log("Critical value: {}".format(crit), self.name)
+        #
+        # p_value = 1 - stats.chi2.cdf(x=chi_squared_stat,  # Find the p-value
+        #                              df=8)
+        # log("P value {}".format(p_value), self.name)
 
         # For Chi2
         import pandas as pd
         from scipy import stats
 
-        condition = []
-        responses = []
+        data_frames = dict()
 
         for c in conditions:
 
@@ -146,110 +214,35 @@ class Analyst:
             n = len(chosen)
             results[c] = mean
 
-            print("Observed freq is {:.2f} ({} trials)".format(mean, n))
+            log("Observed freq is {:.2f} ({} trials)".format(mean, n), self.name)
 
             # For Chi2
             n_hit = np.sum(chosen)
 
-            to_add = ["yes"] * n_hit + ["no"] * (n - n_hit)
-            print(c, "yes", to_add.count("yes"))
-            print(c, "no", to_add.count("no"))
+            data_frames[c] = pd.DataFrame(["yes"] * n_hit + ["no"] * (n - n_hit))
+            data_frames[c] = pd.crosstab(index= data_frames[c][0], columns="count")
 
-            responses += to_add
-            condition += [c, ] * n
+        # log(data_frames)
 
-        voters = pd.DataFrame({"response": responses,
-                               "condition": condition})
+        first_sample = data_frames["gains"]
+        second_sample = data_frames["losses"]
 
-        voter_tab = pd.crosstab(voters.response, voters.condition, margins=True)
+        observed = first_sample
+        expected = second_sample/len(second_sample) * len(first_sample)
 
-        voter_tab.columns = ["gains", "losses", "row_totals"]
+        chi_squared_stat = (((observed - expected) ** 2) / expected).sum()
 
-        voter_tab.index = ["no", "yes", "col_totals"]
-
-        observed = voter_tab.ix[0:2, 0:2]  # Get table without totals for later use
-        print(voter_tab)
-
-        expected = np.outer(voter_tab["row_totals"][0:2],
-                            voter_tab.ix["col_totals"][0:2]) / sorted_data["n_trials"]
-
-        expected = pd.DataFrame(expected)
-
-        expected.columns = ["gains", "losses"]
-        expected.index = ["yes", "no"]
-
-        print(expected)
-
-        chi_squared_stat = (((observed - expected) ** 2) / expected).sum().sum()
-
-        print(chi_squared_stat)
+        log("Chi squared stat: {}".format(chi_squared_stat["count"]), self.name)
 
         crit = stats.chi2.ppf(q=0.95,  # Find the critical value for 95% confidence*
-                              df=8)  # *
+                              df=1)  # Df = number of variable categories - 1
 
-        print("Critical value")
-        print(crit)
+        log("Critical value: {}".format(crit), self.name)
 
         p_value = 1 - stats.chi2.cdf(x=chi_squared_stat,  # Find the p-value
-                                     df=8)
-        print("P value")
-        print(p_value)
+                                     df=1)
 
-        # # For Chi2
-        # import pandas as pd
-        # from scipy import stats
-        #
-        # data_frames = dict()
-        #
-        # for c in conditions:
-        #
-        #     pairs = list(sorted_data[c].keys())
-        #     log("For condition {}, I got {} pair(s) of lotteries ({}).".format(c, len(pairs), pairs), name=self.name)
-        #
-        #     assert len(pairs) == 1, 'I expected only one pair of lotteries to meet the conditions.'
-        #
-        #     chosen = sorted_data[c][pairs[0]]
-        #
-        #     mean = np.mean(chosen)
-        #     n = len(chosen)
-        #     results[c] = mean
-        #
-        #     print("Observed freq is {:.2f} ({} trials)".format(mean, n))
-        #
-        #     # For Chi2
-        #     n_hit = np.sum(chosen)
-        #
-        #     data_frames[c] = pd.DataFrame(["yes"] * n_hit + ["no"] * (n - n_hit))
-        #     data_frames[c] = pd.crosstab(index= data_frames[c][0], columns="count")
-        #
-        # print(data_frames)
-        #
-        # first_sample = data_frames["gains"]
-        # second_sample = data_frames["losses"]
-        #
-        # observed = first_sample
-        # expected = second_sample/len(second_sample) * len(first_sample)
-        #
-        # chi_squared_stat = (((observed - expected) ** 2) / expected).sum()
-        #
-        # print()
-        # print("Chi squared stat")
-        # print(chi_squared_stat)
-        # print()
-        #
-        # crit = stats.chi2.ppf(q=0.95,  # Find the critical value for 95% confidence*
-        #                       df=1)  # Df = number of variable categories - 1
-        #
-        # print()
-        # print("Critical value")
-        # print(crit)
-        #
-        # p_value = 1 - stats.chi2.cdf(x=chi_squared_stat,  # Find the p-value
-        #                              df=1)
-        #
-        # print()
-        # print("P value")
-        # print(p_value)
+        log("P value: {}".format(p_value[0]), self.name)
 
         return results
 
@@ -294,22 +287,23 @@ class Plot(object):
 
 def main(force=False):
 
-    makedirs(folders["figures"], exist_ok=True)
+    makedirs(parameters.folders["figures"], exist_ok=True)
 
     for monkey in ["Havane", "Gladys"]:
 
-        print("\nAnalysis for {}...".format(monkey))
+        log(monkey, name="__main__.exemplary_case")
 
-        starting_point = starting_points[monkey]
+        starting_point = parameters.starting_points[monkey]
 
         analyst = Analyst()
 
-        b = Backup(monkey, "data")
+        b = Backup(monkey, kind_of_analysis="data", folder=parameters.folders["pickle"])
         data = b.load()
 
         if force is True or data is None:
 
-            data = import_data(monkey=monkey, starting_point=starting_point, end_point=end_point)
+            data = import_data(monkey=monkey, starting_point=starting_point, end_point=parameters.end_point,
+                               database_path=parameters.database_path)
 
             b.save(data)
 
@@ -319,9 +313,9 @@ def main(force=False):
 
         results = analyst.run(sorted_data)
 
-        log("N trials: {}".format(n_trials), "__main__")
+        log("N trials: {}".format(n_trials), "exemplary_case.__main__")
 
-        plot = Plot(folder=folders["figures"], monkey=monkey)
+        plot = Plot(folder=parameters.folders["figures"], monkey=monkey)
         plot.plot(results)
 
 

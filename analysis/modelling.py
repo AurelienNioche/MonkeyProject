@@ -1,5 +1,6 @@
 import itertools as it
 from os import makedirs, path
+import tqdm
 
 import numpy as np
 import json
@@ -80,7 +81,7 @@ class ModelRunner(object):
 
         cls.p_list = []
 
-        for i, parameters in enumerate(it.product(*cls.parameters_list)):
+        for i, parameters in tqdm.tqdm(enumerate(it.product(*cls.parameters_list))):
             cls.p_list.append(cls.compute(parameters))
 
         cls.p_list = np.array(cls.p_list)
@@ -116,7 +117,7 @@ class LlsComputer(object):
 
         lls_list = np.zeros(n_sets)
 
-        for i in range(n_sets):
+        for i in tqdm.tqdm(range(n_sets)):
             log_likelihood_sum = 0
 
             for j in range(len_n):
@@ -183,15 +184,15 @@ class AlternativesNKGetter(object):
         return alternatives, n, k
 
 
-def get_model_data(npy_files, alternatives, 
+def get_model_data(npy, alternatives, 
                    range_parameters,
                    n_values_per_parameter,
                    force=False):
 
-    if all([path.exists(file) for file in npy_files.values()]) and not force:
+    if all([path.exists(file) for file in npy.values()]) and not force:
 
-        parameters_it = np.load(npy_files["parameters"])
-        p = np.load(npy_files["p"])
+        parameters_it = np.load(npy["parameters"])
+        p = np.load(npy["p"])
 
         return parameters_it, p
 
@@ -203,22 +204,22 @@ def get_model_data(npy_files, alternatives,
               n_values_per_parameter=n_values_per_parameter)
 
         try:
-            np.save(npy_files["parameters"], m.parameters_list)
-            np.save(npy_files["p"], m.p_list)
+            np.save(npy["parameters"], m.parameters_list)
+            np.save(npy["p"], m.p_list)
 
         except Exception as e:
-            print("Could not save: {}".format(e))
+            log("Could not save: {}".format(e))
 
         return m.parameters_list, m.p_list
 
 
-def get_monkey_data(monkey, npy_files, starting_point, end_point, database_path=None, force=False):
+def get_monkey_data(monkey, npy, starting_point, end_point, database_path=None, force=False):
 
-    if all([path.exists(file) for file in npy_files.values()]) and not force:
+    if all([path.exists(file) for file in npy.values()]) and not force:
 
-        alternatives = np.load(npy_files["alternatives"])
-        n = np.load(npy_files["n"])
-        k = np.load(npy_files["k"])
+        alternatives = np.load(npy["alternatives"])
+        n = np.load(npy["n"])
+        k = np.load(npy["k"])
 
     else:
 
@@ -229,9 +230,9 @@ def get_monkey_data(monkey, npy_files, starting_point, end_point, database_path=
         alternatives, n, k = alternatives_n_k_getter.run()
 
         try:
-            np.save(npy_files["n"], n)
-            np.save(npy_files["k"], k)
-            np.save(npy_files["alternatives"], alternatives)
+            np.save(npy["n"], n)
+            np.save(npy["k"], k)
+            np.save(npy["alternatives"], alternatives)
         except Exception as e:
             print("Could not save: {}".format(e))
 
@@ -266,11 +267,10 @@ def treat_results(monkey, lls_list, parameters, json_file):
         if i == arg:
             best_parameters = param
             break
-    print(best_parameters)
 
     msg = "{}: ".format(monkey) + \
         "".join(["{}: {:.2f}; ".format(k, v) for k, v in zip(sorted(ProspectTheoryModel.labels), best_parameters)])
-    print(msg)
+    log(msg, name="modelling.treat_results")
 
     result = dict([(k, v) for k, v in zip(sorted(ProspectTheoryModel.labels), best_parameters)])
     with open(json_file, "w") as file:
@@ -287,19 +287,19 @@ def main(force=False):
 
     files = dict()
     files["model"] = {
-        "p": "{}/{}.npy".format(folders["npy_files"], "model_p"),
-        "parameters": "{}/{}.npy".format(folders["npy_files"], "model_parameters")
+        "p": "{}/{}.npy".format(folders["npy"], "model_p"),
+        "parameters": "{}/{}.npy".format(folders["npy"], "model_parameters")
     }
 
     for monkey in ["Havane", "Gladys"]:
 
         files[monkey] = {
             "data": {
-                "alternatives": "{}/{}_{}.npy".format(folders["npy_files"], monkey, "alternatives"),
-                "n": "{}/{}_{}.npy".format(folders["npy_files"], monkey, "n"),
-                "k": "{}/{}_{}.npy".format(folders["npy_files"], monkey, "k"),
+                "alternatives": "{}/{}_{}.npy".format(folders["npy"], monkey, "alternatives"),
+                "n": "{}/{}_{}.npy".format(folders["npy"], monkey, "n"),
+                "k": "{}/{}_{}.npy".format(folders["npy"], monkey, "k"),
             },
-            "LLS": "{}/{}_{}.npy".format(folders["npy_files"], monkey, "lls"),
+            "LLS": "{}/{}_{}.npy".format(folders["npy"], monkey, "lls"),
             "fit": "{}/{}_{}.json".format(folders["fit"], monkey, "fit")  # What will be used for producing figures
         }
 
@@ -309,23 +309,22 @@ def main(force=False):
 
         starting_point = starting_points[monkey]
 
-        print()
-        log("Processing for {}...".format(monkey), name="__main__")
+        log("Processing for {}...".format(monkey), name="modelling.__main__")
 
-        log("Getting experimental data for {}...".format(monkey), name="__main__")
+        log("Getting experimental data for {}...".format(monkey), name="modelling.__main__")
         alternatives, n, k = get_monkey_data(
             monkey=monkey, starting_point=starting_point, end_point=end_point,
             database_path=database_path,
-            npy_files=files[monkey]["data"], force=force)
+            npy=files[monkey]["data"], force=force)
 
-        log("Getting model data for {}...".format(monkey), name="__main__")
+        log("Getting model predictions for {}...".format(monkey), name="modelling.__main__")
         parameters, p = \
             get_model_data(
                 range_parameters=range_parameters,
                 n_values_per_parameter=n_values_per_parameter,           
-                npy_files=files["model"], alternatives=alternatives, force=force)
+                npy=files["model"], alternatives=alternatives, force=force)
 
-        log("Getting statistical data for {}...".format(monkey), name="__main__")
+        log("Getting the best parameters for {}...".format(monkey), name="modelling.__main__")
         lls_list = get_lls(
             k=k,
             n=n,
@@ -336,7 +335,7 @@ def main(force=False):
             monkey=monkey, lls_list=lls_list, parameters=parameters,
             json_file=files[monkey]["fit"])
 
-        log("Done!", name="__main__")
+        log("Done!", name="modelling.__main__")
 
 
 if __name__ == "__main__":

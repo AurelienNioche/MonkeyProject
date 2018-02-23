@@ -13,7 +13,7 @@ folder_path = "results_analysis"
 # path.expanduser("~/GoogleDrive/SBGProject/MonkeyProject-master/MonkeyResults2017-10-04")
 
 # Subfolders for figures, fit, and other data files produced for analysis
-folders = {key: folder_path + "/" + key for key in ["figures", "fit", "npy_files", "pickle_files"]}
+folders = {key: folder_path + "/" + key for key in ["figures", "fit", "npy", "pickle"]}
 
 # Range of parameters for the fit
 range_parameters = {

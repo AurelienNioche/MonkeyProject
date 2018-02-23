@@ -1,6 +1,7 @@
 from pylab import np, plt
 from os import makedirs
 
+from utils.utils import log
 from data_management.data_manager import import_data
 
 from analysis.parameters import parameters
@@ -27,7 +28,7 @@ class Analyst:
         "identical x, negative x0"
     ]
 
-    name = "Analyst"
+    name = "Analyst 'control trials'"
 
     def __init__(self, data, fig_name="figure.pdf", monkey=""):
 
@@ -144,8 +145,7 @@ class Analyst:
 
         for cond in self.control_conditions:
 
-            print()
-            print("Condition '{}'.".format(cond))
+            log("Condition '{}'.".format(cond), self.name)
 
             data = self.sorted_data[cond]
             alternatives = sorted(list(data.keys()))
@@ -162,26 +162,24 @@ class Analyst:
 
                 means.append(mean)
 
-                print("{} {}: mean {}, n {}".format(i, alt, mean, n))
+                log("{} {}: mean {}, n {}".format(i, alt, mean, n), self.name)
 
             # noinspection PyTypeChecker
             perc_75, perc_25 = np.percentile(means, [75, 25])
 
-            print()
-            print("Number of pairs of lotteries", len(n_trials))
-            print()
-            print()
-            print("The median of frequencies for {}: {:.02f} (IQR = {:.02f} -- {:.02f})".format(cond, np.median(means), perc_25, perc_75))
-            print()
-            print("Analysis of the number of trials")
-            print()
+            log("Number of pairs of lotteries: {}".format(len(n_trials)), self.name)
+            
+            log("The median of frequencies for {}: {:.02f} (IQR = {:.02f} -- {:.02f})"
+                .format(cond, np.median(means), perc_25, perc_75), self.name)
+            
+            log("A few other stats about the number of trials for a specific pair", self.name)
 
-            print("Min:", np.min(n_trials))
-            print("Max:", np.max(n_trials))
-            print("Median:", np.median(n_trials))
-            print("Mean:", np.mean(n_trials))
-            print("Std:", np.std(n_trials))
-            print("Sum:", np.sum(n_trials))
+            log("Min: {}".format(np.min(n_trials)), self.name)
+            log("Max: {}".format(np.max(n_trials)), self.name)
+            log("Median: {}".format(np.median(n_trials)), self.name)
+            log("Mean: {}".format(np.mean(n_trials)), self.name)
+            log("Std: {}".format(np.std(n_trials)), self.name)
+            log("Sum: {}".format(np.sum(n_trials)), self.name)
 
     def plot(self):
 
@@ -258,14 +256,11 @@ def main(force=False):
 
     for monkey in ["Havane", "Gladys"]:
 
-        print()
-        print()
-        print(monkey.upper())
-        print()
+        log(monkey, name="control_trials.__main__")
 
         starting_point = parameters.starting_points[monkey]
 
-        b = Backup(monkey, "data")
+        b = Backup(monkey, kind_of_analysis="data", folder=parameters.folders["pickle"])
         data = b.load()
 
         fig_name = "{}/{}_{}.pdf" \

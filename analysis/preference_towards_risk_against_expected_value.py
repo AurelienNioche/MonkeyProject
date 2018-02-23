@@ -20,7 +20,7 @@ def get_script_name():
 
 class Analyst(object):
 
-    name = "Analyst"
+    name = "Analyst 'Preference towards risk against expected value'"
 
     def __init__(self, data):
 
@@ -103,9 +103,8 @@ class Analyst(object):
 
         r_keys = list(sorted(results.keys()))
 
-        print()
-        print("Pairs of lotteries used:")
-        print()
+        log("Pairs of lotteries used:", self.name)
+        
         for i, alternative in enumerate(r_keys):
 
             delta = self.expected_value(alternative[0]) - self.expected_value(alternative[1])
@@ -118,23 +117,20 @@ class Analyst(object):
 
             n_trials.append(n)
 
-            print(i, alternative, ", delta: ", delta, ", mean: ", mean, ", n:", n)
+            log("({}) {} delta: {}, mean: {}, n: {}".format(i, alternative, delta, ", mean: ", mean, ", n:", n),
+                self.name)
 
-        print()
-        print("Number of pairs of lotteries", len(n_trials))
-
-        print()
-        print("Analysis of the number of trials")
-        print()
-
-        print("Min:", np.min(n_trials))
-        print("Max:", np.max(n_trials))
-        print("Median:", np.median(n_trials))
-        print("Mean:", np.mean(n_trials))
-        print("Std:", np.std(n_trials))
-        print("Sum:", np.sum(n_trials))
-
-        print()
+        log("Number of pairs of lotteries: {}".format(len(n_trials)), self.name)
+        
+        log("A few stats about the number of trials for a specific pair", self.name)
+        
+        log("Min: {}".format(np.min(n_trials)), self.name)
+        log("Max: {}".format(np.max(n_trials)), self.name)
+        log("Median {}:".format(np.median(n_trials)), self.name)
+        log("Mean: {}".format(np.mean(n_trials)), self.name)
+        log("Std: {}".format(np.std(n_trials)), self.name)
+        log("Sum: {}".format(np.sum(n_trials)), self.name)
+        
         return expected_values_differences, risky_choice_means, np.sum(n_trials)
 
     def run(self, condition):
@@ -161,6 +157,8 @@ class RiskyChoiceAgainstExpectValuePlot(object):
     comment_font_size = 14
     point_size = 100
 
+    name = "RiskyChoiceAgainstExpectValuePlot"
+
     def __init__(self):
 
         pass
@@ -180,11 +178,11 @@ class RiskyChoiceAgainstExpectValuePlot(object):
             plt.plot(x, y, color=color, label='fit', linewidth=self.line_width)
 
         except RuntimeError as e:
-            print(e)
+            log(e)
 
         plt.scatter(x_data, y_data, color=color, label='data', s=self.point_size)
 
-        print("Plot results coming from ", n_trials, " trials.")
+        log("Plot results coming from {} trials".format(n_trials), self.name)
 
     def close_and_save(self, fig_name):
 
@@ -231,9 +229,7 @@ def main(force=False):
 
     for monkey in ["Havane", "Gladys"]:
 
-        print()
-        print(monkey.upper())
-        print()
+        log(monkey, name="preference_towards_risk_against_expected_value.__main__")
 
         b = Backup(monkey, kind_of_analysis="data", folder=parameters.folders["pickle"])
         data = b.load()

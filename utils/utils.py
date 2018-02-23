@@ -12,7 +12,7 @@ def today():
     return datetime.now().strftime("%Y-%m-%d")
 
 
-def log(msg, name):
+def log(msg="", name=""):
 
     print("[{}] [{}] {}".format(now(), name, msg))
 

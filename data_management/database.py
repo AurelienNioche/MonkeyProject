@@ -17,7 +17,7 @@ class Database(object):
                 param = json.load(file)
 
             database_folder = os.path.expanduser(param["database_folder"])
-            os.makedirs(database_folder)
+            os.makedirs(database_folder, exist_ok=True)
             self.db_path = "{}/{}".format(database_folder, param["database_name"])
 
         else:

@@ -76,7 +76,7 @@ def main():
 
     for monkey in ["Havane", "Gladys"]:
 
-        fit_results = "{}/{}_result.json".format(parameters.folders["fit"], monkey)
+        fit_results = "{}/{}_fit.json".format(parameters.folders["fit"], monkey)
         assert os.path.exists(fit_results), "I could not find the fit data.\n" \
                                             "Did you forgot to run the modeling script(analysis/modelling.py)?"
 
