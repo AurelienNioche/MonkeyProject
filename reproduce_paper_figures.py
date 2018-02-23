@@ -1,5 +1,6 @@
 import os
 
+from utils import utils
 import analysis
 
 
@@ -12,5 +13,9 @@ analysis.control_trials.main()
 analysis.exemplary_case.main()
 analysis.preference_towards_risk_against_expected_value.main()
 analysis.main_figures.main()
+
+utils.log("Done!", name="Reproduce paper figures")
+utils.log("Path of the figures: {}".format(os.getcwd() + os.sep + analysis.parameters.folders["figures"]),
+          name="Reproduce paper figures")
 
 
