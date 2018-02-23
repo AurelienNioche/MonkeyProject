@@ -3,11 +3,11 @@ from pylab import np, plt
 from scipy.stats import sem
 
 from data_management.data_manager import import_data
-from data_management.data_sorter import sort_data
+from analysis.tools.data_sorter import sort_data
 
-from analysis.analysis_parameters import folders
-from analysis.progress_analyst import ProgressAnalyst
-from analysis.backup import Backup
+from analysis.parameters import parameters
+from analysis.tools.backup import Backup
+from analysis.tools.progress_analyst import ProgressAnalyst
 
 
 class ProgressHist(object):
@@ -53,11 +53,11 @@ class Plot:
         self.monkey = monkey
         self.results = results
 
-        makedirs(folders["figures"], exist_ok=True)
+        makedirs(parameters.folders["figures"], exist_ok=True)
         self.fig_name = self.get_fig_name()
 
     def get_fig_name(self):
-        return "{}/{}_progressHist.pdf".format(folders["figures"], self.monkey)
+        return "{}/{}_progressHist.pdf".format(parameters.folders["figures"], self.monkey)
 
     def plot(self):
 
@@ -121,7 +121,7 @@ def main(make_only_figures=True):
 
     for monkey in ["Havane", "Gladys"]:
 
-        b = Backup(monkey, "progressHist")
+        b = Backup(monkey, kind_of_analysis="progressHist", folder=parameters.folders["pickle"])
         results = b.load()
 
         if not make_only_figures or results is None:

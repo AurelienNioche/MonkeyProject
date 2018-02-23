@@ -1,26 +1,26 @@
 import json
-
-from os import path, mkdir
+import os
 
 from data_management.data_manager import import_data
-from analysis.progress_analyst import ProgressAnalyst
-from analysis.analysis_parameters import starting_points, end_point
+from analysis.tools.progress_analyst import ProgressAnalyst
+from analysis.parameters import parameters
+
+"""
+Supp: Just produce a json file with the success rates per monkey.
+"""
 
 
-def check_progress():
-
-    """
-    Just produce a json file with the success rates per monkey.
-    """
+def main():
 
     for monkey in ["Havane", "Gladys"]:
 
         print("Analysis for {}".format(monkey))
         print()
 
-        starting_point = starting_points[monkey]
+        starting_point = parameters.starting_points[monkey]
 
-        data = import_data(monkey=monkey, starting_point=starting_point, end_point=end_point)
+        data = import_data(monkey=monkey, starting_point=starting_point,
+                           end_point=parameters.end_point, database_path=parameters.database_path)
 
         progress = dict()
 
@@ -29,9 +29,9 @@ def check_progress():
         for key in ProgressAnalyst.control_conditions:
             progress[key] = pa.analyse(key)
 
-        folder = path.expanduser("~/Desktop/monkey_results_modelling")
-        if not path.exists(folder):
-            mkdir(folder)
+        folder = parameters.folder_path
+        os.makedirs(folder, exist_ok=True)
+
         json_file = "{}/{}_progress.json".format(folder, monkey)
 
         with open(json_file, "w") as file:
@@ -43,4 +43,4 @@ def check_progress():
 
 
 if __name__ == "__main__":
-    check_progress()
+    main()

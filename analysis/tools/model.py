@@ -1,6 +1,11 @@
 import numpy as np
 
 
+"""
+The model properly speaking [necessary to fit the data with script "modelling"
+"""
+
+
 class ProspectTheoryModel(object):
 
     labels = ['loss_aversion', 'negative_risk_aversion', 'positive_risk_aversion', 'probability_distortion', 'temp']

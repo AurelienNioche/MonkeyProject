@@ -5,11 +5,17 @@ import numpy as np
 import json
 from scipy.stats import binom
 
-from analysis.model import ProspectTheoryModel
+from analysis.tools.model import ProspectTheoryModel
 
 from data_management.data_manager import import_data
 
 from utils.utils import log
+
+
+"""
+Script to obtain best parameters from data [necessary in order to produce result figures
+
+"""
 
 
 class ModelRunner(object):
@@ -206,7 +212,7 @@ def get_model_data(npy_files, alternatives,
         return m.parameters_list, m.p_list
 
 
-def get_monkey_data(monkey, npy_files, starting_point, end_point, force=False):
+def get_monkey_data(monkey, npy_files, starting_point, end_point, database_path=None, force=False):
 
     if all([path.exists(file) for file in npy_files.values()]) and not force:
 
@@ -216,7 +222,8 @@ def get_monkey_data(monkey, npy_files, starting_point, end_point, force=False):
 
     else:
 
-        data = import_data(monkey=monkey, starting_point=starting_point, end_point=end_point)
+        data = \
+            import_data(monkey=monkey, starting_point=starting_point, end_point=end_point, database_path=database_path)
 
         alternatives_n_k_getter = AlternativesNKGetter(data)
         alternatives, n, k = alternatives_n_k_getter.run()
@@ -272,8 +279,8 @@ def treat_results(monkey, lls_list, parameters, json_file):
 
 def main(force=False):
 
-    from analysis.analysis_parameters import \
-        folders, range_parameters, n_values_per_parameter, starting_points, end_point
+    from analysis.parameters import \
+        folders, range_parameters, n_values_per_parameter, starting_points, end_point, database_path
 
     for folder in folders.values():
         makedirs(folder, exist_ok=True)
@@ -293,7 +300,7 @@ def main(force=False):
                 "k": "{}/{}_{}.npy".format(folders["npy_files"], monkey, "k"),
             },
             "LLS": "{}/{}_{}.npy".format(folders["npy_files"], monkey, "lls"),
-            "fit": "{}/{}_{}.json".format(folders["fit"], monkey, "fit")
+            "fit": "{}/{}_{}.json".format(folders["fit"], monkey, "fit")  # What will be used for producing figures
         }
 
     monkeys = ["Gladys", "Havane"]
@@ -308,6 +315,7 @@ def main(force=False):
         log("Getting experimental data for {}...".format(monkey), name="__main__")
         alternatives, n, k = get_monkey_data(
             monkey=monkey, starting_point=starting_point, end_point=end_point,
+            database_path=database_path,
             npy_files=files[monkey]["data"], force=force)
 
         log("Getting model data for {}...".format(monkey), name="__main__")

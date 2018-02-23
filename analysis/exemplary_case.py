@@ -1,14 +1,18 @@
 from pylab import np, plt
-from scipy.stats import sem, wilcoxon, chisquare
 from os import makedirs
 
 from data_management.data_manager import import_data
 
 from utils.utils import log
 
-from analysis.backup import Backup
+from analysis.tools.backup import Backup
 
-from analysis.analysis_parameters import folders, starting_points, end_point
+from analysis.parameters.parameters import folders, starting_points, end_point
+
+
+"""
+Produce the results for the certainty-risk trade-off figure
+"""
 
 
 def get_script_name():
@@ -129,7 +133,7 @@ class Analyst:
         condition = []
         responses = []
 
-        for c in ("gains", "losses"):
+        for c in conditions:
 
             pairs = list(sorted_data[c].keys())
             log("For condition {}, I got {} pair(s) of lotteries ({}).".format(c, len(pairs), pairs), name=self.name)
@@ -276,8 +280,9 @@ class Plot(object):
         plt.xticks(fontsize=self.ticks_font_size)
 
         plt.yticks([0, 0.25, 0.5, 0.75, 1], fontsize=self.ticks_font_size)
-        ax.set_ylabel("F(Choose riskiest option)",
-                   fontsize=self.axis_label_font_size)
+        ax.set_ylabel(
+            "F(Choose riskiest option)",
+            fontsize=self.axis_label_font_size)
 
         ax.set_aspect(2)
         plt.tight_layout()

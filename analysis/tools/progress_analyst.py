@@ -1,5 +1,9 @@
 import numpy as np
 
+"""
+module to sort the control trials and assess the behavioral performances
+"""
+
 
 class ProgressAnalyst(object):
 

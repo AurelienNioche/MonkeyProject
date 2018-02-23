@@ -1,17 +1,19 @@
 from os import makedirs
 import pickle
 
-from analysis.analysis_parameters import folders
+"""
+module for loading data from pickle file
+"""
 
 
 class Backup:
 
-    folder = folders["pickle_files"]
-    makedirs(folder, exist_ok=True)
+    def __init__(self, monkey, kind_of_analysis, folder):
 
-    def __init__(self, monkey, kind_of_analysis):
+        makedirs(folder, exist_ok=True)
+
         self.monkey = monkey
-        self.backup_file = "{}/{}_{}.p".format(self.folder, monkey, kind_of_analysis)
+        self.backup_file = "{}/{}_{}.p".format(folder, monkey, kind_of_analysis)
 
     def save(self, data):
 

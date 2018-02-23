@@ -4,8 +4,14 @@ from os import makedirs
 
 from data_management.data_manager import import_data
 from utils.utils import log
-from analysis.analysis_parameters import folders, starting_points, end_point
-from analysis.backup import Backup
+from analysis.parameters import parameters
+from analysis.tools.backup import Backup
+
+
+""" 
+Produce result figure which presents at which extent 
+the risky option was chosen according to the difference between expected values
+"""
 
 
 def get_script_name():
@@ -221,7 +227,7 @@ class RiskyChoiceAgainstExpectValuePlot(object):
 
 def main(force=False):
 
-    makedirs(folders["figures"], exist_ok=True)
+    makedirs(parameters.folders["figures"], exist_ok=True)
 
     for monkey in ["Havane", "Gladys"]:
 
@@ -229,13 +235,14 @@ def main(force=False):
         print(monkey.upper())
         print()
 
-        b = Backup(monkey, "data")
+        b = Backup(monkey, kind_of_analysis="data", folder=parameters.folders["pickle"])
         data = b.load()
 
         if force is True or data is None:
 
-            starting_point = starting_points[monkey]
-            data = import_data(monkey=monkey, starting_point=starting_point, end_point=end_point)
+            starting_point = parameters.starting_points[monkey]
+            data = import_data(monkey=monkey, starting_point=starting_point, end_point=parameters.end_point,
+                               database_path=parameters.database_path)
             b.save(data)
 
         analyst = Analyst(data=data)
@@ -251,7 +258,7 @@ def main(force=False):
             plot.plot(*results[condition], color="C0" if condition == "with_gains_only" else "C1")
 
             fig_name = "{}/{}_{}_{}.pdf" \
-                .format(folders["figures"], monkey, get_script_name(), condition)
+                .format(parameters.folders["figures"], monkey, get_script_name(), condition)
 
             plot.close_and_save(fig_name=fig_name)
 

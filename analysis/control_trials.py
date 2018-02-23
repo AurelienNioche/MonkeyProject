@@ -3,11 +3,13 @@ from os import makedirs
 
 from data_management.data_manager import import_data
 
-from analysis.analysis_parameters import folders, starting_points, end_point
-from analysis.backup import Backup
+from analysis.parameters import parameters
+from analysis.tools.backup import Backup
 
 
-# from utils.utils import log
+"""
+Produce the result figure for control trials
+"""
 
 
 def get_script_name():
@@ -162,6 +164,7 @@ class Analyst:
 
                 print("{} {}: mean {}, n {}".format(i, alt, mean, n))
 
+            # noinspection PyTypeChecker
             perc_75, perc_25 = np.percentile(means, [75, 25])
 
             print()
@@ -251,7 +254,7 @@ class Analyst:
 
 def main(force=False):
 
-    makedirs(folders["figures"], exist_ok=True)
+    makedirs(parameters.folders["figures"], exist_ok=True)
 
     for monkey in ["Havane", "Gladys"]:
 
@@ -260,17 +263,18 @@ def main(force=False):
         print(monkey.upper())
         print()
 
-        starting_point = starting_points[monkey]
+        starting_point = parameters.starting_points[monkey]
 
         b = Backup(monkey, "data")
         data = b.load()
 
         fig_name = "{}/{}_{}.pdf" \
-            .format(folders["figures"], monkey, get_script_name())
+            .format(parameters.folders["figures"], monkey, get_script_name())
 
         if force is True or data is None:
 
-            data = import_data(monkey=monkey, starting_point=starting_point, end_point=end_point)
+            data = import_data(monkey=monkey, starting_point=starting_point, end_point=parameters.end_point,
+                               database_path=parameters.database_path)
             b.save(data)
 
         analyst = Analyst(data=data, fig_name=fig_name, monkey=monkey)

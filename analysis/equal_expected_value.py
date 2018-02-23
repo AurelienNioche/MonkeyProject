@@ -1,14 +1,18 @@
 from pylab import np, plt
-from scipy.stats import sem, wilcoxon, chisquare
+from scipy.stats import sem
 from os import makedirs
 
 from data_management.data_manager import import_data
 
 from utils.utils import log
 
-from analysis.backup import Backup
+from analysis.tools.backup import Backup
 
-from analysis.analysis_parameters import folders, starting_points, end_point
+from analysis.parameters.parameters import folders, starting_points, end_point
+
+"""
+Supp: compute choice frequencies for pair of lotteries with expected equal values
+"""
 
 
 class Analyst:

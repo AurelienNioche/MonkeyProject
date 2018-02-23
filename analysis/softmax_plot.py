@@ -1,8 +1,12 @@
-from os import path, mkdir
+import os
 from pylab import np, plt
 import json
 
-from analysis.analysis_parameters import folders
+from analysis.parameters import parameters
+
+"""
+Produce result figure with softmax functions
+"""
 
 
 class SoftmaxPlot(object):
@@ -21,10 +25,9 @@ class SoftmaxPlot(object):
 
     def get_fig_name(self, monkey):
 
-        if not path.exists(folders["figures"]):
-            mkdir(folders["figures"])
+        os.makedirs(parameters.folders["figures"], exist_ok=True)
 
-        return "{}/softmax_{}_temp_{:.2f}.pdf".format(folders["figures"], monkey, self.temp)
+        return "{}/softmax_{}_temp_{:.2f}.pdf".format(parameters.folders["figures"], monkey, self.temp)
 
     def softmax(self, difference):
 
@@ -63,8 +66,6 @@ class SoftmaxPlot(object):
         # Add legend
         # ax.legend(bbox_to_anchor=(0.2, 0.98), fontsize=self.legend_font_size, frameon=False)
 
-
-
         plt.tight_layout()
 
         plt.savefig(self.fig_name)
@@ -72,9 +73,15 @@ class SoftmaxPlot(object):
 
 
 def main():
+
     for monkey in ["Havane", "Gladys"]:
 
-        with open("{}/{}_result.json".format(folders["fit"], monkey)) as f:
+        fit_results = "{}/{}_result.json".format(parameters.folders["fit"], monkey)
+        assert os.path.exists(fit_results), "I could not find the fit data.\n" \
+                                            "Did you forgot to run the modeling script(analysis/modelling.py)?"
+
+        # Open the file containing best parameters after fit
+        with open(fit_results) as f:
             data = json.load(f)
 
         sp = SoftmaxPlot(temp=data["temp"], monkey=monkey)

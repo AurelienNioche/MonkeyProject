@@ -5,12 +5,17 @@ from scipy.signal import savgol_filter
 from scipy.interpolate import interp1d
 
 from data_management.data_manager import import_data
-from data_management.data_sorter import sort_data
+from analysis.tools.data_sorter import sort_data
 
-from analysis.analysis_parameters import folders
+from analysis.parameters.parameters import folders
 
-from analysis.backup import Backup
-from analysis.progress_analyst import ProgressAnalyst
+from analysis.tools.backup import Backup
+from analysis.tools.progress_analyst import ProgressAnalyst
+
+
+"""
+Supp: Assess performance through time (only control trials are taken into account)
+"""
 
 
 class ProgressPerArbitraryPool(object):
@@ -103,8 +108,6 @@ class Plot:
         plt.savefig(self.fig_name)
         plt.show()
         plt.close()
-
-
 
 
 def main(make_only_figures=True):

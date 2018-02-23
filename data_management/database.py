@@ -1,5 +1,5 @@
 from sqlite3 import connect, OperationalError
-from os import path, mkdir
+import os
 import json
 
 from utils.utils import log
@@ -9,34 +9,31 @@ class Database(object):
 
     name = "Database"
 
-    def __init__(self):
-        parameters_folder = path.abspath("{}/../parameters".format(path.dirname(path.abspath(__file__))))
-        with open("{}/results_path.json".format(parameters_folder)) as file:
-            param = json.load(file)
+    def __init__(self, database_path=None):
 
-        # Backup is a database format, using Sqlite3 management system
-        self.database_folder = path.expanduser(param["database_folder"])
-        self.db_path = "{}/{}".format(self.database_folder, param["database_name"])
+        if database_path is None:
+            parameters_folder = os.path.abspath("{}/../parameters".format(os.path.dirname(os.path.abspath(__file__))))
+            with open("{}/results_path.json".format(parameters_folder)) as file:
+                param = json.load(file)
+
+            database_folder = os.path.expanduser(param["database_folder"])
+            os.makedirs(database_folder)
+            self.db_path = "{}/{}".format(database_folder, param["database_name"])
+
+        else:
+            self.db_path = database_path
+
         self.table_name = None
         self.connexion = None
         self.cursor = None
 
-        self.create_directory()
-
         self.types = {int: "INTEGER", float: "REAL", str: "TEXT", list: "TEXT"}
-
-    def create_directory(self):
-
-        if path.exists(self.database_folder):
-            pass
-        else:
-            mkdir(self.database_folder)
 
     def table_exists(self, table_name):
 
         r = 0
 
-        if path.exists(self.db_path):
+        if os.path.exists(self.db_path):
 
             # noinspection SqlResolve
             already_existing = self.read("SELECT name FROM sqlite_master WHERE type='table'")

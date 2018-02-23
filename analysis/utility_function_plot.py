@@ -1,9 +1,14 @@
 from pylab import np, plt
-from os import path, mkdir
+import os
 import json
 
 from analysis.modelling import ProspectTheoryModel
-from analysis.analysis_parameters import folders
+from analysis.parameters import parameters
+
+
+"""
+Produce result figure with utility functions
+"""
 
 
 class UtilityFunctionPlot(object):
@@ -15,21 +20,20 @@ class UtilityFunctionPlot(object):
     ticks_label_font_size = 14
     line_width = 3
 
-    def __init__(self, parameters, monkey):
+    def __init__(self, param, monkey):
 
         self.model = ProspectTheoryModel(
-            parameters=[parameters[k] for k in ProspectTheoryModel.labels])
-        self.fig_name = self.get_fig_name(monkey, parameters)
+            parameters=[param[k] for k in ProspectTheoryModel.labels])
+        self.fig_name = self.get_fig_name(monkey, param)
 
     @staticmethod
-    def get_fig_name(monkey, parameters):
+    def get_fig_name(monkey, param):
 
-        if not path.exists(folders["figures"]):
-            mkdir(folders["figures"])
+        os.makedirs(parameters.folders["figures"], exist_ok=True)
 
-        fig_name = "{}/utility_function_{}_".format(folders["figures"], monkey)
+        fig_name = "{}/utility_function_{}_".format(parameters.folders["figures"], monkey)
 
-        for key, value in sorted(parameters.items()):
+        for key, value in sorted(param.items()):
             fig_name += "{}_{:.2f}".format(key[:3], value)
 
         fig_name += ".pdf"
@@ -37,13 +41,13 @@ class UtilityFunctionPlot(object):
 
     def plot(self):
 
-        X = np.linspace(self.reward_min, self.reward_max, self.n_points)
-        Y = [self.model.u(x) for x in X]
+        x = np.linspace(self.reward_min, self.reward_max, self.n_points)
+        y = [self.model.u(i) for i in x]
 
-        X[:] = np.divide(X, self.reward_max)
+        x[:] = np.divide(x, self.reward_max)
 
         ax = plt.gca()
-        ax.plot(X, Y, color="black", linewidth=self.line_width)
+        ax.plot(x, y, color="black", linewidth=self.line_width)
 
         ax.spines['left'].set_position(('data', 0))
         ax.spines['right'].set_color('none')
@@ -75,11 +79,14 @@ class UtilityFunctionPlot(object):
 def main():
 
     for monkey in ["Gladys", "Havane"]:
-        try:
-            with open("{}/{}_result.json".format(folders["fit"], monkey)) as f:
-                data = json.load(f)
-        except (FileNotFoundError, KeyError):
-            raise Exception("Fitting of data should be done before the utility function plot.")
+
+        fit_results = "{}/{}_result.json".format(parameters.folders["fit"], monkey)
+        assert os.path.exists(fit_results), "I could not find the fit data.\n" \
+                                            "Did you forgot to run the modeling script(analysis/modelling.py)?"
+
+        # Open the file containing best parameters after fit
+        with open(fit_results) as f:
+            data = json.load(f)
 
         ufp = UtilityFunctionPlot(monkey=monkey, parameters=data)
         ufp.plot()

@@ -5,17 +5,20 @@ from tqdm import tqdm
 from multiprocessing import Pool, cpu_count
 
 from scipy.signal import savgol_filter
-# from scipy.interpolate import interp1d
 
 from data_management.data_manager import import_data
-from data_management.data_sorter import sort_data
+from analysis.tools.data_sorter import sort_data
 
-from analysis.backup import Backup
+from analysis.tools.backup import Backup
 from analysis.modelling import AlternativesNKGetter, ModelRunner, LlsComputer, ProspectTheoryModel
-from analysis.analysis_parameters import \
-    folders, range_parameters, n_values_per_parameter, condition_evolution
+from analysis.parameters.parameters import \
+    folders, range_parameters, n_values_per_parameter
 
 from utils.utils import log
+
+"""
+Supp: assess the evolution of 'best' parameters
+"""
 
 
 class Analyst:
@@ -168,6 +171,9 @@ class Plot:
 
 
 def main(just_do_graphs=True):
+
+    # For supplementary analysis, where to
+    condition_evolution = "pool"  # Choice: "day", "beginning_vs_end", "pool"
 
     kind_of_analysis = "evolution_param_{}".format(condition_evolution)
 

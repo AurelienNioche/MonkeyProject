@@ -1,8 +1,13 @@
-from os import path, mkdir
+import os
 from pylab import np, plt
 import json
 
-from analysis.analysis_parameters import folders
+from analysis.parameters import parameters
+
+
+"""
+Produce result figure with distortion of probabilities
+"""
 
 
 class ProbabilityDistortionPlot:
@@ -23,11 +28,10 @@ class ProbabilityDistortionPlot:
 
     def get_fig_name(self, monkey):
 
-        if not path.exists(folders["figures"]):
-            mkdir(folders["figures"])
+        os.makedirs(parameters.folders["figures"], exist_ok=True)
 
         return "{}/probability_distortion_{}_{:.2f}.pdf".format(
-            folders["figures"], monkey, self.alpha)
+            parameters.folders["figures"], monkey, self.alpha)
 
     def w(self, p):
         """Probability distortion"""
@@ -37,10 +41,10 @@ class ProbabilityDistortionPlot:
     def plot(self):
 
         # fig = plt.figure(figsize=(11.5, 7), dpi=300, facecolor='w')
+        # fig.subplots_adjust(left=0.15, right=0.9, bottom=0.2, top=0.9)
 
-        #fig.subplots_adjust(left=0.15, right=0.9, bottom=0.2, top=0.9)
         plt.subplots_adjust(left=0.15, right=0.9, bottom=0.2, top=0.9)
-        #ax = fig.add_subplot(1, 1, 1)
+        # ax = fig.add_subplot(1, 1, 1)
 
         X = np.linspace(0.001, 1, self.n_points)
         plt.plot(
@@ -77,7 +81,12 @@ def main():
 
     for monkey in ["Havane", "Gladys"]:
 
-        with open("{}/{}_result.json".format(folders["fit"], monkey)) as f:
+        fit_results = "{}/{}_result.json".format(parameters.folders["fit"], monkey)
+        assert os.path.exists(fit_results), "I could not find the fit data.\n" \
+                                            "Did you forgot to run the modeling script(analysis/modelling.py)?"
+
+        # Open the file containing best parameters after fit
+        with open(fit_results) as f:
             data = json.load(f)
 
         pdp = ProbabilityDistortionPlot(monkey=monkey, alpha=data["probability_distortion"])

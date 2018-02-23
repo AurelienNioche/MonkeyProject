@@ -3,7 +3,12 @@ import json
 from analysis.utility_function_plot import UtilityFunctionPlot
 from analysis.softmax_plot import SoftmaxPlot
 from analysis.probability_distorsion_plot import ProbabilityDistortionPlot
-from analysis.analysis_parameters import folders
+from analysis.parameters.parameters import folders
+
+
+"""
+To produce all figures based on parametrization *once the fitting has been done* 
+"""
 
 
 def main():

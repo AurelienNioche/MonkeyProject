@@ -1,11 +1,14 @@
-from pylab import np, plt
-from scipy.optimize import curve_fit
-from os import makedirs
+from pylab import np
 
 from data_management.data_manager import import_data
-from utils.utils import log
-from analysis.analysis_parameters import folders, starting_points, end_point
-from analysis.backup import Backup
+
+from analysis.parameters import parameters
+from analysis.tools.backup import Backup
+
+
+"""
+Just compute the number of different lotteries
+"""
 
 
 def get_script_name():
@@ -274,13 +277,13 @@ def main(force=False):
         print(monkey.upper())
         print()
 
-        b = Backup(monkey, get_script_name())
+        b = Backup(monkey, kind_of_analysis="data", folder=parameters.folders["pickle"])
         data = b.load()
 
         if force is True or data is None:
 
-            starting_point = starting_points[monkey]
-            data = import_data(monkey=monkey, starting_point=starting_point, end_point=end_point)
+            starting_point = parameters.starting_points[monkey]
+            data = import_data(monkey=monkey, starting_point=starting_point, end_point=parameters.end_point)
             b.save(data)
 
         analyst = Analyst(data=data)

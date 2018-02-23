@@ -8,9 +8,9 @@ class DataManager(object):
 
     name = "DataManager"
 
-    def __init__(self, monkey, starting_point="2016-12-01", end_point=today()):
+    def __init__(self, monkey, starting_point="2016-12-01", end_point=today(), database_path=None):
 
-        self.db = Database()
+        self.db = Database(database_path)
         self.monkey = monkey
         self.starting_point = starting_point
         self.end_point = end_point
@@ -168,9 +168,9 @@ class DataManager(object):
         return {"p": p, "x0": x0, "x1": x1, "choice": choice, "session": session, "date": date}
 
 
-def import_data(monkey, starting_point="2016-12-01", end_point=today()):
+def import_data(monkey, starting_point="2016-12-01", end_point=today(), database_path=None):
 
-    d = DataManager(monkey=monkey, starting_point=starting_point, end_point=end_point)
+    d = DataManager(monkey=monkey, starting_point=starting_point, end_point=end_point, database_path=database_path)
     return d.run()
 
 
