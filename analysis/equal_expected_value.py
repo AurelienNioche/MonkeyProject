@@ -11,7 +11,7 @@ from analysis.tools.backup import Backup
 from analysis.parameters.parameters import folders, starting_points, end_point
 
 """
-Supp: compute choice frequencies for pair of lotteries with expected equal values
+Supp: Compute choice frequencies for pair of lotteries with expected equal values
 """
 
 
@@ -120,16 +120,6 @@ class Analyst:
             for value in sorted_data[c].values():
                 values += value
 
-            # freq, n = [], []
-            # for value in sorted_data[cond].values():
-            #
-            #     freq.append(np.mean(value))
-            #     n.append(len(value))
-
-            # average = np.average(freq, weights=n)
-            # variance = np.average((np.asarray(freq) - average) ** 2, weights=n)
-            # std = math.sqrt(variance)
-
             results[c] = {
                 "mean": np.mean(values),
                 "sem": sem(values)
@@ -167,12 +157,6 @@ class Analyst:
             print()
         print()
 
-        #
-        # print(wilcoxon(r["gains"], r["losses"]))
-        # print(chisquare(r["gains"]))
-        # print(chisquare(r["losses"]))
-        # print()
-
         return r
 
 
@@ -206,9 +190,6 @@ class Plot(object):
             top='off',  # ticks along the top edge are off
             labelbottom='off')  # labels along the bottom edge are off
 
-        # # Axis labels
-        # plt.xlabel("Expected value of the two lotteries",
-        #            fontsize=self.axis_label_font_size)
         plt.ylabel("Frequency with which the riskiest option is chosen",
                    fontsize=self.axis_label_font_size)
 
@@ -258,9 +239,6 @@ class PlotByPairs(object):
         ax.set_xticklabels(labels=labels)
 
         ax.legend((rct_1[0], rct_2[0]), ('Positive amounts', 'Negative amounts'))
-
-        # ax.annotate('{} [n trials: {}]'.format(monkey, n_trials),
-        #             xy=(0, 0), xycoords='axes fraction', xytext=(0, 1.1))
 
         ax.set_ylim(0, 1)
 

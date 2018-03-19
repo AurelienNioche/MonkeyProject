@@ -7,7 +7,7 @@ from analysis.tools.backup import Backup
 
 
 """
-Just compute the number of different lotteries
+Compute the number of different pairs of lotteries
 """
 
 

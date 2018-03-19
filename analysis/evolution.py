@@ -17,7 +17,7 @@ from analysis.parameters.parameters import \
 from utils.utils import log
 
 """
-Supp: assess the evolution of 'best' parameters
+Supp: assess the evolution of 'best' parameters over time
 """
 
 

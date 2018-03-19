@@ -9,7 +9,7 @@ from analysis.tools.backup import Backup
 
 
 """
-Produce the result figure for control trials
+Produce the control trials figure
 """
 
 

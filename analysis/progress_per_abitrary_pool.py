@@ -46,7 +46,7 @@ class ProgressPerArbitraryPool(object):
 
 class Plot:
 
-    fig_size = (10, 10)# (25, 12)
+    fig_size = (10, 10)
     marker = 'o'
     line_width = 2
     bbox_to_anchor = (1, 0.5)
@@ -99,10 +99,6 @@ class Plot:
 
         ax.set_title(self.monkey)
 
-        # box = ax.get_position()
-        # ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
-        # ax.legend(loc=self.loc, bbox_to_anchor=self.bbox_to_anchor)
-
         ax.legend()
 
         plt.savefig(self.fig_name)
@@ -112,7 +108,7 @@ class Plot:
 
 def main(make_only_figures=True):
 
-    starting_point = "2016-12-01"  # "2017-03-01"
+    starting_point = "2017-03-01"
 
     sort_type = "day"
 

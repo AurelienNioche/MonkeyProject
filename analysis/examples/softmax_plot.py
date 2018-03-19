@@ -49,15 +49,10 @@ class SoftmaxPlot(object):
 
         ax.set_ylim(-0.01, 1.01)
 
-        # ax.spines['left'].set_position(('data', 0))
         ax.spines['right'].set_color('none')
         ax.xaxis.set_ticks_position('bottom')
         ax.yaxis.set_ticks_position('left')
-        # ax.spines['bottom'].set_position(('data', 0))
         ax.spines['top'].set_color('none')
-
-        # # Add legend
-        # ax.legend(bbox_to_anchor=(0.2, 0.98), fontsize=self.legend_font_size, frameon=False)
 
         fig.savefig(self.fig_name)
 

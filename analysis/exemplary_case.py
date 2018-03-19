@@ -1,17 +1,18 @@
 from pylab import np, plt
 from os import makedirs
+import pandas as pd
+from scipy import stats
 
 from data_management.data_manager import import_data
 
 from utils.utils import log
 
 from analysis.tools.backup import Backup
-
 from analysis.parameters import parameters
 
 
 """
-Produce the results for the certainty-risk trade-off figure
+Produce the the certainty-risk trade-off figure
 """
 
 
@@ -125,80 +126,8 @@ class Analyst:
 
         # For plot
         results = {}
-        #
-        # # For Chi2
-        # import pandas as pd
-        # from scipy import stats
-        #
-        # condition = []
-        # responses = []
-        #
-        # for c in conditions:
-        #
-        #     pairs = list(sorted_data[c].keys())
-        #     log("For condition {}, I got {} pair(s) of lotteries ({}).".format(c, len(pairs), pairs), self.name)
-        #
-        #     assert len(pairs) == 1, 'I expected only one pair of lotteries to meet the conditions.'
-        #
-        #     chosen = sorted_data[c][pairs[0]]
-        #
-        #     mean = np.mean(chosen)
-        #     n = len(chosen)
-        #     results[c] = mean
-        #
-        #     log("Observed freq is {:.2f} ({} trials)".format(mean, n), self.name)
-        #
-        #     # For Chi2
-        #     n_hit = np.sum(chosen)
-        #
-        #     to_add = ["yes"] * n_hit + ["no"] * (n - n_hit)
-        #     # print(c, "yes", to_add.count("yes"))
-        #     # print(c, "no", to_add.count("no"))
-        #
-        #     responses += to_add
-        #     condition += [c, ] * n
-        #
-        # log("Performing Chi-Squared...", self.name)
-        #
-        # voters = pd.DataFrame({"response": responses,
-        #                        "condition": condition})
-        #
-        # voter_tab = pd.crosstab(voters.response, voters.condition, margins=True)
-        #
-        # voter_tab.columns = ["gains", "losses", "row_totals"]
-        #
-        # voter_tab.index = ["no", "yes", "col_totals"]
-        #
-        # observed = voter_tab.ix[0:2, 0:2]  # Get table without totals for later use
-        # # print(voter_tab)
-        #
-        # expected = np.outer(voter_tab["row_totals"][0:2],
-        #                     voter_tab.ix["col_totals"][0:2]) / sorted_data["n_trials"]
-        #
-        # expected = pd.DataFrame(expected)
-        #
-        # expected.columns = ["gains", "losses"]
-        # expected.index = ["yes", "no"]
-        #
-        # # print(expected)
-        #
-        # chi_squared_stat = (((observed - expected) ** 2) / expected).sum().sum()
-        #
-        # log("Chi-squared stat: {}".format(chi_squared_stat), self.name)
-        #
-        # crit = stats.chi2.ppf(q=0.95,  # Find the critical value for 95% confidence*
-        #                       df=8)  # *
-        #
-        # log("Critical value: {}".format(crit), self.name)
-        #
-        # p_value = 1 - stats.chi2.cdf(x=chi_squared_stat,  # Find the p-value
-        #                              df=8)
-        # log("P value {}".format(p_value), self.name)
 
         # For Chi2
-        import pandas as pd
-        from scipy import stats
-
         data_frames = dict()
 
         for c in conditions:
@@ -220,7 +149,7 @@ class Analyst:
             n_hit = np.sum(chosen)
 
             data_frames[c] = pd.DataFrame(["yes"] * n_hit + ["no"] * (n - n_hit))
-            data_frames[c] = pd.crosstab(index= data_frames[c][0], columns="count")
+            data_frames[c] = pd.crosstab(index=data_frames[c][0], columns="count")
 
         # log(data_frames)
 
@@ -266,7 +195,7 @@ class Plot(object):
 
         ax.scatter(names, (results["gains"], results["losses"]), color=("C0", "C1"), s=80, zorder=2)
 
-        ax.plot(names, (results["gains"], results["losses"]), color="black", zorder=1, alpha=0.5, linestyle= '--')
+        ax.plot(names, (results["gains"], results["losses"]), color="black", zorder=1, alpha=0.5, linestyle='--')
         ax.set_xlabel("\nLotteries potential outputs\nMonkey {}.".format(self.monkey[0]),
                       fontsize=self.axis_label_font_size)
 

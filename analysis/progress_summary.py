@@ -6,7 +6,7 @@ from analysis.tools.progress_analyst import ProgressAnalyst
 from analysis.parameters import parameters
 
 """
-Supp: Just produce a json file with the success rates per monkey.
+Supp: Produce a json file with summarizes the success rates per monkey.
 """
 
 

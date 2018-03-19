@@ -14,7 +14,7 @@ from utils.utils import log
 
 
 """
-Script to obtain best parameters from data [necessary in order to produce result figures
+Get best parameters from data [necessary in order to produce result figures]
 
 """
 
@@ -72,16 +72,13 @@ class ModelRunner(object):
             range_parameters=range_parameters, 
             n_values_per_parameter=n_values_per_parameter)
 
-        log("Launch run of model...", cls.name)
+        log("Run the model...", cls.name)
 
-        log("Number of different set of parameters: {}.".format(cls.n_set_parameters), cls.name)
-
-        # pool = Pool(processes=cpu_count())
-        # cls.p_list = np.array(pool.map(cls.compute, it.product(*cls.parameters_list)))
+        log("Number of different sets of parameters: {}.".format(cls.n_set_parameters), cls.name)
 
         cls.p_list = []
 
-        for i, parameters in tqdm.tqdm(enumerate(it.product(*cls.parameters_list))):
+        for i, parameters in tqdm.tqdm(enumerate(it.product(*cls.parameters_list)), total=cls.n_set_parameters):
             cls.p_list.append(cls.compute(parameters))
 
         cls.p_list = np.array(cls.p_list)
@@ -106,7 +103,7 @@ class LlsComputer(object):
     @classmethod
     def run(cls):
 
-        log("Launch lls computation...", cls.name)
+        log("Compute log-likelihoods...", cls.name)
 
         assert len(cls.k) == len(cls.n) == len(cls.p[0, :]), \
             "len k: {}; len n: {}; len p: {}.".format(
@@ -322,7 +319,7 @@ def main(force=False):
             get_model_data(
                 range_parameters=range_parameters,
                 n_values_per_parameter=n_values_per_parameter,           
-                npy=files["model"], alternatives=alternatives, force=force)
+                npy=files["model"], alternatives=alternatives, force=True)
 
         log("Getting the best parameters for {}...".format(monkey), name="modelling.__main__")
         lls_list = get_lls(

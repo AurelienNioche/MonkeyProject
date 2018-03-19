@@ -7,7 +7,7 @@ from analysis.parameters import parameters
 
 
 """
-To produce all figures based on parametrization *once the fitting has been done* 
+Produce all figures based on parametrization *once the fitting has been done* 
 """
 
 

@@ -158,6 +158,10 @@ class DataManager(object):
         log("Import data for {}.".format(self.monkey), self.name)
 
         dates = self.get_dates()
+
+        assert len(dates), "Fatal: No valid dates found, \n" \
+            "Please give a look at the analysis parameters (analysis/parameters/parameters.py)."
+
         error, p, x0, x1, choice, session, date = self.get_errors_p_x0_x1_choices_from_db(dates)
         p, x0, x1, choice, session, date = self.filter_valid_trials(error, p, x0, x1, choice, session, date)
 

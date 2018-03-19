@@ -7,7 +7,7 @@ from analysis.parameters import parameters
 
 
 """
-Produce result figure with utility functions
+Produce the utility function figure
 """
 
 

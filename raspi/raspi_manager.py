@@ -4,6 +4,10 @@ from time import time
 import socket
 import RPi.GPIO as GPIO
 
+"""
+Program intended to be executed on the Raspberry Pi
+"""
+
 
 class TtlSignal(Process):
 

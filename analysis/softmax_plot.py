@@ -5,7 +5,7 @@ import json
 from analysis.parameters import parameters
 
 """
-Produce result figure with softmax functions
+Produce softmax function figure
 """
 
 
@@ -13,8 +13,6 @@ class SoftmaxPlot(object):
 
     label_font_size = 20
     ticks_label_size = 14
-    # legend_font_size = 12
-
     line_width = 3
 
     def __init__(self, temp, monkey):
@@ -36,9 +34,6 @@ class SoftmaxPlot(object):
         return 1/(1+np.exp(-difference/self.temp))
 
     def plot(self):
-
-        # fig = plt.figure()
-        # plt.subplots_adjust(left=0.15, right=0.9, bottom=0.2, top=0.9)
 
         x = np.arange(-1, 1, 0.01)
         plt.plot(
@@ -62,9 +57,6 @@ class SoftmaxPlot(object):
 
         plt.xticks([-1, -0.5, 0, 0.5, 1], fontsize=self.ticks_label_size)
         plt.yticks([0, 0.25, 0.5, 0.75, 1], fontsize=self.ticks_label_size)
-
-        # Add legend
-        # ax.legend(bbox_to_anchor=(0.2, 0.98), fontsize=self.legend_font_size, frameon=False)
 
         plt.tight_layout()
 

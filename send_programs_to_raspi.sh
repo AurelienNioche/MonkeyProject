@@ -1,9 +1,4 @@
 rpi_ip_address=169.254.162.142
-# scp raspi/grip_manager.py pi@${rpi_ip_address}:/home/pi/grip_manager.py
-# scp raspi/pump_manager.py pi@${rpi_ip_address}:/home/pi/pump_manager.py
-# scp raspi/pump_manager.service pi@${rpi_ip_address}:/home/pi/pump_manager.service
-# scp raspi/grip_manager.service pi@${rpi_ip_address}:/home/pi/grip_manager.service
-# scp raspi/create_services.sh pi@${rpi_ip_address}:/home/pi/create_services.sh
 
 scp raspi/raspi_manager.py pi@${rpi_ip_address}:/home/pi/raspi_manager.py
 

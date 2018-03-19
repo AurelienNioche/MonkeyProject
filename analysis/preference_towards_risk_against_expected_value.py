@@ -9,7 +9,7 @@ from analysis.tools.backup import Backup
 
 
 """ 
-Produce result figure which presents at which extent 
+Produce the figure which presents at which extent 
 the risky option was chosen according to the difference between expected values
 """
 

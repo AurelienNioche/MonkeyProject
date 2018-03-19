@@ -6,7 +6,7 @@ from analysis.parameters import parameters
 
 
 """
-Produce result figure with distortion of probabilities
+Produce the probability distortion figure
 """
 
 
@@ -14,8 +14,6 @@ class ProbabilityDistortionPlot:
 
     label_font_size = 20
     ticks_label_size = 14
-    # legend_font_size = 12
-
     line_width = 3
 
     n_points = 1000
@@ -40,11 +38,7 @@ class ProbabilityDistortionPlot:
 
     def plot(self):
 
-        # fig = plt.figure(figsize=(11.5, 7), dpi=300, facecolor='w')
-        # fig.subplots_adjust(left=0.15, right=0.9, bottom=0.2, top=0.9)
-
         plt.subplots_adjust(left=0.15, right=0.9, bottom=0.2, top=0.9)
-        # ax = fig.add_subplot(1, 1, 1)
 
         X = np.linspace(0.001, 1, self.n_points)
         plt.plot(
@@ -66,9 +60,6 @@ class ProbabilityDistortionPlot:
 
         plt.xticks([0, 0.25, 0.5, 0.75, 1], fontsize=self.ticks_label_size)
         plt.yticks([0, 0.25, 0.5, 0.75, 1], fontsize=self.ticks_label_size)
-
-        # Add legend
-        # ax.legend(bbox_to_anchor=(0.2, 0.98), fontsize=self.legend_font_size, frameon=False)
 
         plt.figaspect(1)
 

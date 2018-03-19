@@ -6,7 +6,7 @@ import analysis
 
 assert os.path.exists(analysis.parameters.database_path), \
     "Fatal: Could not find the database containing behavioral results! \n" \
-    "Please give a look at the analysis parameters (analysis/parameters/parameters.py)."
+    "Please take a look at the analysis parameters (analysis/parameters/parameters.py)."
 
 analysis.modelling.main()
 analysis.control_trials.main()

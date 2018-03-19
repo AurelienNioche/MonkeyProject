@@ -1,44 +1,24 @@
 # MonkeyProject
-Kind of sophisticated dual bandit task whose purpose is to study attitude 
+Kind of sophisticated dual bandit task with explicit stimuli for which the purpose is to study attitude 
 towards risk in macaques.
 
 ## Experiments
-Run "main.py".
+Run 'main.py': 
+
+    $ python main.py
+
+* Modify the location of the **backup database** in the file 'parameters/results_path.json'.
+ 
+* The functioning of this program in 'normal mode' requires **additional material** comprising a Raspberry PI, a valve controlling 
+the water delivery, and a grip. 
+
+* If you want to **test the program**, uncheck 'save results' and check 'Use fake grip and reward system'. 
+Use space key to launch the program, the 'p' key for mimic the holding of the grip, and the mouse
+ to mimic monkey presses on the screen.
 
 ## Analysis
+Run 'reproduce_paper_figures.py':
 
-### Re-produce figures contained in paper
+    $ python reproduce_paper_figures.py
 
-### Supplementary analysis
-
-##### Stability of modelling
-
-For having an idea about the stability of fitting parameters, run "analysis/evolution.py".
-
-##### Progress - performances
-
-1) For assessing progress over time, run "analysis/progress_per_arbitrary_pool.py".
-
-2) For evaluating performances, run "analysis/progress_histo.py". It produces 
-figures that depict performances for control trials 
-(i.e. trials in which just p values change between lotteries, etc.). 
-You can access values running "analysis/progress_summary.py".
-
-3) For evaluating performances for 'non-control' trials, 
-run 'analysis/preference_towards_risk_against_expected_value'.
-
-### Step by step
-For evaluating performances, run "analysis/progress_histo.py". 
-
-##### Progress
-
-##### Kahneman replication
-Run 'equal_expected_value.py'
- 
-##### Modelling 
-
-1) For fitting data with the DM model, run 'analysis/modelling'.
-
-2) Run 'analysis/main_figures' for creating the figures corresponding 
-to the modelling.
-
+* Analysis settings file is 'analysis/parameters/parameters.py'.
