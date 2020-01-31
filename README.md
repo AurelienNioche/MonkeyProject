@@ -12,7 +12,9 @@ Run 'main.py':
 * The functioning of this program in 'normal mode' requires **additional material** comprising a Raspberry PI, a valve controlling 
 the water delivery, and a grip. 
 
-* If you want to **test the program**, uncheck 'save results' and check 'Use fake grip and reward system'. 
-Use space key to launch the program, the 'p' key for mimic the holding of the grip, and the mouse
- to mimic monkey presses on the screen.
-
+* If you want to **test the program**:
+    * At the menu screen, ensure that 'save results' is unchecked and 'Use fake grip and reward system' is checked. 
+    * Use space key to launch a session 
+    * Use the 'p' key for mimic the holding of the grip
+    * User the mouse to mimic monkey presses on the screen.
+    * Think about coming back to the 'p' key after choosing

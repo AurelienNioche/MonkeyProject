@@ -8,13 +8,13 @@ from PyQt5.QtWidgets import QApplication
 from graphics.interface import Interface
 from graphics.generic import Communicant
 from task.experimentalist import Manager
-from utils.utils import git_report
+# from utils.utils import git_report
 
 
 if __name__ == "__main__":
 
     # Make a log of git status
-    git_report()
+    # git_report()
 
     # Start graphic processes
 
