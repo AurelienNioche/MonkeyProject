@@ -16,9 +16,3 @@ the water delivery, and a grip.
 Use space key to launch the program, the 'p' key for mimic the holding of the grip, and the mouse
  to mimic monkey presses on the screen.
 
-## Analysis
-Run 'reproduce_paper_figures.py':
-
-    $ python reproduce_paper_figures.py
-
-* Analysis settings file is 'analysis/parameters/parameters.py'.

@@ -18,7 +18,7 @@ class Database(object):
 
             database_folder = os.path.expanduser(param["database_folder"])
             os.makedirs(database_folder, exist_ok=True)
-            self.db_path = "{}/{}".format(database_folder, param["database_name"])
+            self.db_path = os.path.join(database_folder, param["database_name"])
 
         else:
             self.db_path = database_path
